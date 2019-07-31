@@ -73,7 +73,7 @@ if(NOT DEFINED EXTERNAL_PROJECTS_ROOT)
   set(EXTERNAL_PROJECTS_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
-# Build options python version used in virtual environment
+# python version used in virtual environment
 find_package(PythonInterp 3)
 if(PYTHONINTERP_FOUND)
   message("PYTHON_VERSION_STRING " ${PYTHON_VERSION_STRING})
@@ -87,13 +87,23 @@ if(NOT DEFINED PYTHON_VENV_VERSION)
 endif()
 message("PYTHON_VENV_VERSION ${PYTHON_VENV_VERSION}")
 
+# Build options
 option(NGRAPH_HE_SANITIZE_ADDRESS "Enable address sanitizer" OFF)
+option(NGRAPH_HE_CODE_COVERAGE "Enable code coverage" OFF)
 
 if(NGRAPH_HE_SANITIZE_ADDRESS)
   message(STATUS "NGRAPH_HE_SANITIZE_ADDRESS")
   set(CMAKE_CXX_FLAGS
       "${CMAKE_CXX_FLAGS} -g -fsanitize=address -fno-omit-frame-pointer")
 endif()
+
+if(NGRAPH_HE_CODE_COVERAGE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
+
+message(STATUS "NGRAPH_HE_CODE_COVERAGE ${NGRAPH_HE_CODE_COVERAGE}")
+message(STATUS "NGRAPH_HE_SANITIZE_ADDRESS ${NGRAPH_HE_SANITIZE_ADDRESS}")
+message(STATUS "CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}")
 
 include(cmake/ngraph-tf.cmake)
 include(cmake/gtest.cmake)

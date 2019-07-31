@@ -14,11 +14,7 @@
 # the License.
 # ******************************************************************************
 
-set(SRC
-    main.cpp
-    test_seal.cpp
-    test_perf_micro.cpp
-    test_util.cpp)
+set(SRC main.cpp test_seal.cpp test_util.cpp)
 
 set(ACTIVE_BACKEND_LIST HE_SEAL)
 
@@ -40,7 +36,6 @@ set(MULTI_TEST_SRC
     test_multiply.in.cpp
     test_negate.in.cpp
     test_pad.in.cpp
-    test_perf.in.cpp
     test_read_write.in.cpp
     test_relu.in.cpp
     test_reshape.in.cpp
@@ -49,6 +44,12 @@ set(MULTI_TEST_SRC
     test_slice.in.cpp
     test_subtract.in.cpp
     test_sum.in.cpp)
+
+# Skip slow tests when code coverage is enabled
+if(NOT ${NGRAPH_HE_CODE_COVERAGE})
+  set(MULTI_TEST_SRC ${MULTI_TEST_SRC} test_perf.in.cpp)
+  set(SRC ${SRC} test_perf_micro.cpp)
+endif()
 
 foreach(BACKEND_NAME ${ACTIVE_BACKEND_LIST})
   string(REPLACE "HE_"
