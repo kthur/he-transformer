@@ -27,12 +27,7 @@
 namespace ngraph {
 namespace he {
 inline void scalar_relu_seal(const HEPlaintext& arg, HEPlaintext& out) {
-  const std::vector<float>& arg_vals = arg.values();
-  std::vector<float> out_vals(arg.num_values());
-
-  auto relu = [](float f) { return f > 0 ? f : 0.f; };
-  std::transform(arg_vals.begin(), arg_vals.end(), out_vals.begin(), relu);
-  out.values() = out_vals;
+  out = arg > 0 ? arg : 0.f;
 }
 
 inline void relu_seal(const std::vector<HEPlaintext>& arg,

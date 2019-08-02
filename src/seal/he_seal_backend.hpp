@@ -124,17 +124,17 @@ class HESealBackend : public ngraph::runtime::Backend {
   std::shared_ptr<seal::SEALContext> make_seal_context(
       const std::shared_ptr<ngraph::he::HESealEncryptionParameters> sp);
 
-  void decode(void* output, const ngraph::he::HEPlaintext& input,
+  void decode(void* output, const ngraph::he::HEPlaintext input,
               const element::Type& type, size_t count = 1) const;
 
-  void decode(ngraph::he::HEPlaintext& output,
+  void decode(ngraph::he::HEPlaintext output,
               const ngraph::he::SealPlaintextWrapper& input) const;
 
   void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
-               const ngraph::he::HEPlaintext& input,
+               const ngraph::he::HEPlaintext input,
                bool complex_packing = false) const;
 
-  void decrypt(ngraph::he::HEPlaintext& output,
+  void decrypt(ngraph::he::HEPlaintext output,
                const SealCiphertextWrapper& input) const;
 
   const inline std::shared_ptr<seal::SEALContext> get_context() const {

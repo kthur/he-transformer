@@ -178,22 +178,21 @@ ngraph::he::HESealBackend::create_valued_ciphertext(
 
 void ngraph::he::HESealBackend::encrypt(
     std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
-    const ngraph::he::HEPlaintext& input, bool complex_packing) const {
+    const ngraph::he::HEPlaintext input, bool complex_packing) const {
   auto plaintext = SealPlaintextWrapper(complex_packing);
 
-  NGRAPH_CHECK(input.num_values() > 0, "Input has no values in encrypt");
   ngraph::he::encrypt(output, input, m_context->first_parms_id(), m_scale,
                       *m_ckks_encoder, *m_encryptor, complex_packing);
 }
 
 void ngraph::he::HESealBackend::decrypt(
-    ngraph::he::HEPlaintext& output,
+    ngraph::he::HEPlaintext output,
     const ngraph::he::SealCiphertextWrapper& input) const {
   ngraph::he::decrypt(output, input, *m_decryptor, *m_ckks_encoder);
 }
 
 void ngraph::he::HESealBackend::decode(
-    ngraph::he::HEPlaintext& output,
+    ngraph::he::HEPlaintext output,
     const ngraph::he::SealPlaintextWrapper& input) const {
   ngraph::he::decode(output, input, *m_ckks_encoder);
 }

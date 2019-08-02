@@ -164,7 +164,7 @@ void encode(double value, double scale, seal::parms_id_type parms_id,
             seal::MemoryPoolHandle pool = seal::MemoryManager::GetPool());
 
 void encode(ngraph::he::SealPlaintextWrapper& destination,
-            const ngraph::he::HEPlaintext& plaintext,
+            const ngraph::he::HEPlaintext plaintext,
             seal::CKKSEncoder& ckks_encoder, seal::parms_id_type parms_id,
             double scale, bool complex_packing);
 
