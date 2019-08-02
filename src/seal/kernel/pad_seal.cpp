@@ -32,12 +32,10 @@ void ngraph::he::pad_seal(
     op::PadMode pad_mode, size_t batch_size,
     const ngraph::he::HESealBackend& he_seal_backend) {
   NGRAPH_CHECK(arg1.size() == 1, "Padding element must be scalar");
-  NGRAPH_CHECK(arg1[0].num_values() == 1, "Padding value must be scalar");
 
   auto arg1_encrypted = he_seal_backend.create_empty_ciphertext();
 
-  bool is_pad_value_zero =
-      arg1[0].is_single_value() && arg1[0].values()[0] == 0.;
+  bool is_pad_value_zero = arg1[0].is_single_value() && arg1[0] == 0.;
   NGRAPH_CHECK(is_pad_value_zero, "Non-zero pad values not supported");
   arg1_encrypted->known_value() = true;
   arg1_encrypted->value() = 0;

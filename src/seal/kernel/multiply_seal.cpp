@@ -82,9 +82,8 @@ void ngraph::he::scalar_multiply_seal(
   NGRAPH_CHECK(element_type == element::f32, "Element type ", element_type,
                " is not float");
   if (arg0.known_value()) {
-    NGRAPH_CHECK(arg1.is_single_value(), "arg1 is not single value");
     out->known_value() = true;
-    out->value() = arg0.value() * arg1.values()[0];
+    out->value() = arg0.value() * arg1;
     out->complex_packing() = arg0.complex_packing();
     return;
   }
@@ -96,13 +95,12 @@ void ngraph::he::scalar_multiply_seal(
   const auto& values = arg1.values();
   // TODO: check multiplying by small numbers behavior more thoroughly
   // TODO: check if abs(values) < scale?
-  if (std::all_of(values.begin(), values.end(),
-                  [](float f) { return std::abs(f) < 1e-5f; })) {
+  if (std::abs(arg1) < 1e-5f) {
     out->known_value() = true;
     out->value() = 0;
 
   } else if (arg1.is_single_value()) {
-    double value = static_cast<double>(arg1.values()[0]);
+    double value = static_cast<double>(arg1);
 
     multiply_plain(arg0.ciphertext(), value, out->ciphertext(), he_seal_backend,
                    pool);

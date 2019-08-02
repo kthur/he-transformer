@@ -62,15 +62,14 @@ void ngraph::he::scalar_add_seal(
   NGRAPH_CHECK(element_type == element::f32);
 
   if (arg0.known_value()) {
-    NGRAPH_CHECK(arg1.is_single_value(), "arg1 is not single value");
     out->known_value() = true;
-    out->value() = arg0.value() + arg1.values()[0];
+    out->value() = arg0.value() + arg1;
     out->complex_packing() = arg0.complex_packing();
     return;
   }
 
   // TODO: handle case where arg1 = {0, 0, 0, 0, ...}
-  bool add_zero = arg1.is_single_value() && (arg1.values()[0] == 0.0f);
+  bool add_zero = (arg1 == 0.0f);
 
   if (add_zero) {
     SealCiphertextWrapper tmp(arg0);
@@ -81,8 +80,8 @@ void ngraph::he::scalar_add_seal(
   } else {
     bool complex_packing = arg0.complex_packing();
     // TODO: optimize for adding single complex number
-    if (arg1.is_single_value() && !complex_packing) {
-      float value = arg1.values()[0];
+    if (!complex_packing) {
+      float value = arg1;
       double double_val = double(value);
       add_plain(arg0.ciphertext(), double_val, out->ciphertext(),
                 he_seal_backend);
@@ -109,25 +108,5 @@ void ngraph::he::scalar_add_seal(const HEPlaintext& arg0,
                                  const element::Type& element_type,
                                  HESealBackend& he_seal_backend) {
   NGRAPH_CHECK(element_type == element::f32);
-
-  const std::vector<float>& arg0_vals = arg0.values();
-  const std::vector<float>& arg1_vals = arg1.values();
-  std::vector<float> out_vals;
-
-  if (arg0_vals.size() == 1) {
-    std::transform(
-        arg1_vals.begin(), arg1_vals.end(), std::back_inserter(out_vals),
-        std::bind(std::plus<float>(), std::placeholders::_1, arg0_vals[0]));
-  } else if (arg1_vals.size() == 1) {
-    std::transform(
-        arg0_vals.begin(), arg0_vals.end(), std::back_inserter(out_vals),
-        std::bind(std::plus<float>(), std::placeholders::_1, arg1_vals[0]));
-  } else {
-    NGRAPH_CHECK(arg0.num_values() == arg1.num_values(), "arg0 num values ",
-                 arg0.num_values(), " != arg1 num values ", arg1.num_values(),
-                 " in plain-plain add");
-    std::transform(arg0_vals.begin(), arg0_vals.end(), arg1_vals.begin(),
-                   std::back_inserter(out_vals), std::plus<float>());
-  }
-  out.values() = out_vals;
+  out = arg0 + arg1;
 }

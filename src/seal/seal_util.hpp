@@ -168,6 +168,21 @@ void encode(ngraph::he::SealPlaintextWrapper& destination,
             seal::CKKSEncoder& ckks_encoder, seal::parms_id_type parms_id,
             double scale, bool complex_packing);
 
+void encode(ngraph::he::SealPlaintextWrapper& destination,
+            const ngraph::he::HEPackedPlaintext& plaintext,
+            seal::CKKSEncoder& ckks_encoder, seal::parms_id_type parms_id,
+            double scale, bool complex_packing);
+
+void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
+             const HEPackedPlaintext& input, seal::parms_id_type parms_id,
+             double scale, seal::CKKSEncoder& ckks_encoder,
+             seal::Encryptor& encryptor, bool complex_packing);
+
+void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
+             const HEPlaintext input, seal::parms_id_type parms_id,
+             double scale, seal::CKKSEncoder& ckks_encoder,
+             seal::Encryptor& encryptor, bool complex_packing);
+
 void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
              const ngraph::he::HEPlaintext& input, seal::parms_id_type parms_id,
              double scale, seal::CKKSEncoder& ckks_encoder,

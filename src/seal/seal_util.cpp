@@ -414,12 +414,10 @@ void ngraph::he::encode(double value, double scale,
 }
 
 void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
-                        const ngraph::he::HEPlaintext& plaintext,
+                        const ngraph::he::HEPackedPlaintext& plaintext,
                         seal::CKKSEncoder& ckks_encoder,
                         seal::parms_id_type parms_id, double scale,
                         bool complex_packing) {
-  std::vector<double> double_vals(plaintext.values().begin(),
-                                  plaintext.values().end());
   const size_t slot_count = ckks_encoder.slot_count();
 
   if (complex_packing) {
@@ -450,13 +448,46 @@ void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
   destination.complex_packing() = complex_packing;
 }
 
+void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
+                        const ngraph::he::HEPlaintext plaintext,
+                        seal::CKKSEncoder& ckks_encoder,
+                        seal::parms_id_type parms_id, double scale,
+                        bool complex_packing) {
+  const size_t slot_count = ckks_encoder.slot_count();
+
+  if (complex_packing) {
+    std::vector<std::complex<double>> complex_vals;
+    std::complex<double> val(plaintext, plaintext);
+    complex_vals = std::vector<std::complex<double>>(slot_count, val);
+    ckks_encoder.encode(complex_vals, parms_id, scale, destination.plaintext());
+  } else {
+    if (double_vals.size() == 1) {
+      ckks_encoder.encode(double_vals[0], parms_id, scale,
+                          destination.plaintext());
+    }
+    destination.complex_packing() = complex_packing;
+  }
+}
+
 void ngraph::he::encrypt(
     std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
     const ngraph::he::HEPlaintext& input, seal::parms_id_type parms_id,
     double scale, seal::CKKSEncoder& ckks_encoder, seal::Encryptor& encryptor,
     bool complex_packing) {
   NGRAPH_CHECK(input.num_values() > 0, "Input has no values in encrypt");
+  auto plaintext = SealPlaintextWrapper(complex_packing);
+  encode(plaintext, input, ckks_encoder, parms_id, scale, complex_packing);
+  encryptor.encrypt(plaintext.plaintext(), output->ciphertext());
+  output->complex_packing() = complex_packing;
+  output->known_value() = false;
+}
 
+void ngraph::he::encrypt(
+    std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
+    const ngraph::he::HEPackedPlaintext& input, seal::parms_id_type parms_id,
+    double scale, seal::CKKSEncoder& ckks_encoder, seal::Encryptor& encryptor,
+    bool complex_packing) {
+  NGRAPH_CHECK(input.num_values() > 0, "Input has no values in encrypt");
   auto plaintext = SealPlaintextWrapper(complex_packing);
   encode(plaintext, input, ckks_encoder, parms_id, scale, complex_packing);
   encryptor.encrypt(plaintext.plaintext(), output->ciphertext());

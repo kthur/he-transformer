@@ -24,20 +24,7 @@
 
 namespace ngraph {
 namespace he {
-class HEPlaintext {
- public:
-  HEPlaintext(const std::vector<float>& values) : m_values(values) {}
-  HEPlaintext() { m_values.reserve(1); }
-  HEPlaintext(const float value) : m_values{std::vector<float>{value}} {}
-
-  std::vector<float>& values() { return m_values; }
-  const std::vector<float>& values() const { return m_values; }
-
-  bool is_single_value() const { return num_values() == 1; }
-  size_t num_values() const { return m_values.size(); }
-
- private:
-  std::vector<float> m_values;
-};
+using HEPlaintext = float;
+using HEPackedPlaintext = std::vector<float>;
 }  // namespace he
 }  // namespace ngraph

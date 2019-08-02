@@ -67,8 +67,7 @@ void ngraph::he::HESealCipherTensor::write(
   if (num_elements_to_write == 1) {
     const float* float_src = static_cast<const float*>(source);
     std::vector<float> values{float_src, float_src + batch_size};
-    auto plaintext = HEPlaintext(values);
-    encrypt(destination[0], plaintext, parms_id, scale, ckks_encoder, encryptor,
+    encrypt(destination[0], values, parms_id, scale, ckks_encoder, encryptor,
             complex_packing);
   } else {
 #pragma omp parallel for

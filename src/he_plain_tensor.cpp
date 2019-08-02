@@ -37,44 +37,49 @@ void ngraph::he::HEPlainTensor::write(const void* source, size_t n) {
 
   if (num_elements_to_write == 1) {
     const void* src_with_offset = source;
-    if (m_batch_size > 1 && is_packed()) {
-      std::vector<float> values(m_batch_size);
 
-      for (size_t j = 0; j < m_batch_size; ++j) {
-        const void* src = static_cast<const void*>(
-            static_cast<const char*>(source) +
-            type_byte_size * (j * num_elements_to_write));
+    NGRAPH_CHECK(m_batch_size == 1 && !is_packed(),
+                 "PlainTensor supports only batch_size 1 and un-packed)");
+    /* if (m_batch_size > 1 && is_packed()) {
+       std::vector<float> values(m_batch_size);
 
-        const float val = *static_cast<const float*>(src);
-        values[j] = val;
-      }
-      m_plaintexts[0].values() = values;
+       for (size_t j = 0; j < m_batch_size; ++j) {
+         const void* src = static_cast<const void*>(
+             static_cast<const char*>(source) +
+             type_byte_size * (j * num_elements_to_write));
 
-    } else {
-      const float f = *static_cast<const float*>(src_with_offset);
-      m_plaintexts[0].values() = {f};
-    }
+         const float val = *static_cast<const float*>(src);
+         values[j] = val;
+       }
+       m_plaintexts[0] = values;
+     */
+    //} else {
+    const float f = *static_cast<const float*>(src_with_offset);
+    m_plaintexts[0] = f;
+    //}
   } else {
 #pragma omp parallel for
     for (size_t i = 0; i < num_elements_to_write; ++i) {
       const void* src_with_offset = static_cast<const void*>(
           static_cast<const char*>(source) + i * type_byte_size);
-      if (m_batch_size > 1) {
-        std::vector<float> values(m_batch_size);
+      NGRAPH_CHECK(m_batch_size == 1 && !is_packed(),
+                   "PlainTensor supports only batch_size 1 and un-packed)");
+      /* if (m_batch_size > 1) {
+         std::vector<float> values(m_batch_size);
 
-        for (size_t j = 0; j < m_batch_size; ++j) {
-          const void* src = static_cast<const void*>(
-              static_cast<const char*>(source) +
-              type_byte_size * (i + j * num_elements_to_write));
+         for (size_t j = 0; j < m_batch_size; ++j) {
+           const void* src = static_cast<const void*>(
+               static_cast<const char*>(source) +
+               type_byte_size * (i + j * num_elements_to_write));
 
-          const float val = *static_cast<const float*>(src);
-          values[j] = val;
-        }
-        m_plaintexts[i].values() = values;
-      } else {
-        const float f = *static_cast<const float*>(src_with_offset);
-        m_plaintexts[i].values() = {f};
-      }
+           const float val = *static_cast<const float*>(src);
+           values[j] = val;
+         }
+         m_plaintexts[i].) = values;
+       } else { */
+      const float f = *static_cast<const float*>(src_with_offset);
+      m_plaintexts[i] = f;
+      //  }
     }
   }
 }
@@ -85,25 +90,27 @@ void ngraph::he::HEPlainTensor::read(void* target, size_t n) const {
   NGRAPH_CHECK(element_type == element::f32, "Only support float32");
   size_t type_byte_size = element_type.size();
   size_t num_elements_to_read = n / (type_byte_size * m_batch_size);
+  if (m_batch_size > 1) {
+    throw ngraph_error("HEPlainTensor::read not yet implemented for BS > 1");
+  }
 
   if (num_elements_to_read == 1) {
     void* dst_with_offset = target;
-    const std::vector<float>& values = m_plaintexts[0].values();
-    NGRAPH_CHECK(values.size() > 0, "Cannot read from empty plaintext");
-    memcpy(dst_with_offset, &values[0], type_byte_size * m_batch_size);
+    auto values = m_plaintexts[0];
+    memcpy(dst_with_offset, &values, type_byte_size * m_batch_size);
   } else {
 #pragma omp parallel for
     for (size_t i = 0; i < num_elements_to_read; ++i) {
-      const std::vector<float>& values = m_plaintexts[i].values();
-      NGRAPH_CHECK(values.size() >= m_batch_size, "values size ", values.size(),
-                   " is smaller than batch size ", m_batch_size);
+      auto values = m_plaintexts[i];
+
+      memcpy(dst_with_offset, static_cast<const void*>(&values),
+             type_byte_size);
 
       for (size_t j = 0; j < m_batch_size; ++j) {
         void* dst_with_offset =
             static_cast<void*>(static_cast<char*>(target) +
                                type_byte_size * (i + j * num_elements_to_read));
-        const void* src = static_cast<const void*>(&values[j]);
-        memcpy(dst_with_offset, src, type_byte_size);
+        const void* src = static_cast<const void*>(&values);
       }
     }
   }
