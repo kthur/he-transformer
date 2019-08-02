@@ -35,7 +35,7 @@ void ngraph::he::pad_seal(
 
   auto arg1_encrypted = he_seal_backend.create_empty_ciphertext();
 
-  bool is_pad_value_zero = arg1[0].is_single_value() && arg1[0] == 0.;
+  bool is_pad_value_zero = arg1[0] == 0.;
   NGRAPH_CHECK(is_pad_value_zero, "Non-zero pad values not supported");
   arg1_encrypted->known_value() = true;
   arg1_encrypted->value() = 0;

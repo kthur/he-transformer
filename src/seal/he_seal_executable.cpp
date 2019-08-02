@@ -1507,11 +1507,6 @@ void ngraph::he::HESealExecutable::generate_calls(
             arg0_cipher->get_elements(), out0_cipher->get_elements(), in_shape,
             lower_bounds, upper_bounds, strides, packed_out_shape);
       } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-        for (const auto& elem : arg0_plain->get_elements()) {
-          if (elem.num_values() == 0) {
-            throw ngraph_error("Slice input has 0 values");
-          }
-        }
         ngraph::he::slice_seal(
             arg0_plain->get_elements(), out0_plain->get_elements(), in_shape,
             lower_bounds, upper_bounds, strides, packed_out_shape);

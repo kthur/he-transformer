@@ -420,9 +420,11 @@ void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
                         bool complex_packing) {
   const size_t slot_count = ckks_encoder.slot_count();
 
+  std::vector<double> double_vals(plaintext.begin(), plaintext.end());
+
   if (complex_packing) {
     std::vector<std::complex<double>> complex_vals;
-    if (double_vals.size() == 1) {
+    if (plaintext.size() == 1) {
       std::complex<double> val(double_vals[0], double_vals[0]);
       complex_vals = std::vector<std::complex<double>>(slot_count, val);
     } else {
@@ -434,15 +436,13 @@ void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
     ckks_encoder.encode(complex_vals, parms_id, scale, destination.plaintext());
   } else {
     // TODO: why different cases?
-    if (double_vals.size() == 1) {
-      ckks_encoder.encode(double_vals[0], parms_id, scale,
+    if (plaintext.size() == 1) {
+      ckks_encoder.encode(plaintext[0], parms_id, scale,
                           destination.plaintext());
     } else {
-      NGRAPH_CHECK(double_vals.size() <= slot_count, "Cannot encode ",
-                   double_vals.size(), " elements, maximum size is ",
-                   slot_count);
-      ckks_encoder.encode(double_vals, parms_id, scale,
-                          destination.plaintext());
+      NGRAPH_CHECK(plaintext.size() <= slot_count, "Cannot encode ",
+                   plaintext.size(), " elements, maximum size is ", slot_count);
+      ckks_encoder.encode(plaintext, parms_id, scale, destination.plaintext());
     }
   }
   destination.complex_packing() = complex_packing;
@@ -474,7 +474,6 @@ void ngraph::he::encrypt(
     const ngraph::he::HEPlaintext& input, seal::parms_id_type parms_id,
     double scale, seal::CKKSEncoder& ckks_encoder, seal::Encryptor& encryptor,
     bool complex_packing) {
-  NGRAPH_CHECK(input.num_values() > 0, "Input has no values in encrypt");
   auto plaintext = SealPlaintextWrapper(complex_packing);
   encode(plaintext, input, ckks_encoder, parms_id, scale, complex_packing);
   encryptor.encrypt(plaintext.plaintext(), output->ciphertext());

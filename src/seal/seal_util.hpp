@@ -183,11 +183,6 @@ void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
              double scale, seal::CKKSEncoder& ckks_encoder,
              seal::Encryptor& encryptor, bool complex_packing);
 
-void encrypt(std::shared_ptr<ngraph::he::SealCiphertextWrapper>& output,
-             const ngraph::he::HEPlaintext& input, seal::parms_id_type parms_id,
-             double scale, seal::CKKSEncoder& ckks_encoder,
-             seal::Encryptor& encryptor, bool complex_packing);
-
 void decode(ngraph::he::HEPlaintext& output,
             const ngraph::he::SealPlaintextWrapper& input,
             seal::CKKSEncoder& ckks_encoder);

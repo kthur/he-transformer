@@ -75,7 +75,8 @@ void ngraph::he::HESealCipherTensor::write(
       const void* src_with_offset = static_cast<const void*>(
           static_cast<const char*>(source) + i * type_byte_size * batch_size);
 
-      auto plaintext = HEPlaintext();
+      std::vector<float> values;
+
       if (batch_size > 1) {
         size_t allocation_size = type_byte_size * batch_size;
         void* batch_src = ngraph::ngraph_malloc(allocation_size);
@@ -87,18 +88,17 @@ void ngraph::he::HESealCipherTensor::write(
               type_byte_size * (i + j * num_elements_to_write));
           memcpy(destination, src, type_byte_size);
         }
-        std::vector<float> values{static_cast<float*>(batch_src),
-                                  static_cast<float*>(batch_src) + batch_size};
-        plaintext.values() = values;
+        values =
+            std::vector<float>{static_cast<float*>(batch_src),
+                               static_cast<float*>(batch_src) + batch_size};
         ngraph_free(batch_src);
       } else {
-        std::vector<float> values{
+        values = std::vector<float>{
             static_cast<const float*>(src_with_offset),
             static_cast<const float*>(src_with_offset) + batch_size};
-        plaintext.values() = values;
       }
-      encrypt(destination[i], plaintext, parms_id, scale, ckks_encoder,
-              encryptor, complex_packing);
+      encrypt(destination[i], values, parms_id, scale, ckks_encoder, encryptor,
+              complex_packing);
     }
   }
 }

@@ -102,16 +102,11 @@ void ngraph::he::HEPlainTensor::read(void* target, size_t n) const {
 #pragma omp parallel for
     for (size_t i = 0; i < num_elements_to_read; ++i) {
       auto values = m_plaintexts[i];
+      void* dst_with_offset =
+          static_cast<void*>(static_cast<char*>(target) + type_byte_size * i);
 
       memcpy(dst_with_offset, static_cast<const void*>(&values),
              type_byte_size);
-
-      for (size_t j = 0; j < m_batch_size; ++j) {
-        void* dst_with_offset =
-            static_cast<void*>(static_cast<char*>(target) +
-                               type_byte_size * (i + j * num_elements_to_read));
-        const void* src = static_cast<const void*>(&values);
-      }
     }
   }
 }
