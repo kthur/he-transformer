@@ -52,40 +52,23 @@ void batch_norm_inference_seal(
     Coordinate input_coord = input_coords[i];
     // for (Coordinate input_coord : input_transform) {
     auto channel_num = input_coord[1];
-    auto channel_gamma = gamma[channel_num];
-    auto channel_beta = beta[channel_num];
-    auto channel_mean = mean[channel_num];
-    auto channel_var = variance[channel_num];
+    auto channel_gamma_val = gamma[channel_num];
+    auto channel_beta_val = beta[channel_num];
+    auto channel_mean_val = mean[channel_num];
+    auto channel_var_val = variance[channel_num];
 
     auto input_index = input_transform.index(input_coord);
 
-    std::vector<float> channel_gamma_vals = channel_gamma.values();
-    std::vector<float> channel_beta_vals = channel_beta.values();
-    std::vector<float> channel_mean_vals = channel_mean.values();
-    std::vector<float> channel_var_vals = channel_var.values();
-
-    NGRAPH_CHECK(channel_gamma_vals.size() == 1);
-    NGRAPH_CHECK(channel_beta_vals.size() == 1);
-    NGRAPH_CHECK(channel_mean_vals.size() == 1);
-    NGRAPH_CHECK(channel_var_vals.size() == 1);
-
-    float scale = channel_gamma_vals[0] / std::sqrt(channel_var_vals[0] + eps);
-    float bias =
-        channel_beta_vals[0] - (channel_gamma_vals[0] * channel_mean_vals[0]) /
-                                   std::sqrt(channel_var_vals[0] + eps);
-
-    std::vector<float> scale_vec(batch_size, scale);
-    std::vector<float> bias_vec(batch_size, bias);
-
-    auto plain_scale = HEPlaintext(scale_vec);
-    auto plain_bias = HEPlaintext(bias_vec);
+    float scale = channel_gamma_val / std::sqrt(channel_var_val + eps);
+    float bias = channel_beta_val - (channel_gamma_val * channel_mean_val) /
+                                        std::sqrt(channel_var_val + eps);
 
     auto output = he_seal_backend.create_empty_ciphertext();
 
-    ngraph::he::scalar_multiply_seal(*input[input_index], plain_scale, output,
+    ngraph::he::scalar_multiply_seal(*input[input_index], scale, output,
                                      element::f32, he_seal_backend);
 
-    ngraph::he::scalar_add_seal(*output, plain_bias, output, element::f32,
+    ngraph::he::scalar_add_seal(*output, bias, output, element::f32,
                                 he_seal_backend);
     normed_input[input_index] = output;
   }

@@ -34,7 +34,7 @@ void ngraph::he::constant_seal(std::vector<ngraph::he::HEPlaintext>& out,
   for (size_t i = 0; i < count; ++i) {
     const float* f = reinterpret_cast<const float*>(
         static_cast<const char*>(data_ptr) + i * type_byte_size);
-    out[i].values() = {*f};
+    out[i] = *f;
   }
 }
 
@@ -53,7 +53,7 @@ void ngraph::he::constant_seal(
     const float* f = reinterpret_cast<const float*>(
         static_cast<const char*>(data_ptr) + i * type_byte_size);
 
-    encrypt(out[i], f, he_seal_backend.get_context()->first_parms_id(),
+    encrypt(out[i], *f, he_seal_backend.get_context()->first_parms_id(),
             he_seal_backend.get_scale(), *he_seal_backend.get_ckks_encoder(),
             *he_seal_backend.get_encryptor(),
             he_seal_backend.complex_packing());

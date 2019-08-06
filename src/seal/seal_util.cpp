@@ -418,28 +418,28 @@ void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
                         seal::CKKSEncoder& ckks_encoder,
                         seal::parms_id_type parms_id, double scale,
                         bool complex_packing) {
-  if (plaintext.size() == 1) {
-    ngraph::he::encode(destination, plaintext[0], ckks_encoder, parms_id, scale,
-                       complex_packing);
-    return;
-  }
+  throw ngraph_error("Can't encode HEPackedPlaintext");
+  /*  if (plaintext.size() == 1) {
+     ngraph::he::encode(destination, plaintext[0], ckks_encoder, parms_id,
+   scale, complex_packing); return;
+   }
 
-  const size_t slot_count = ckks_encoder.slot_count();
-  std::vector<double> double_vals(plaintext.begin(), plaintext.end());
+   const size_t slot_count = ckks_encoder.slot_count();
+   std::vector<double> double_vals(plaintext.begin(), plaintext.end());
 
-  if (complex_packing) {
-    std::vector<std::complex<double>> complex_vals;
-    real_vec_to_complex_vec(complex_vals, double_vals);
-    NGRAPH_CHECK(complex_vals.size() <= slot_count, "Cannot encode ",
-                 complex_vals.size(), " elements, maximum size is ",
-                 slot_count);
-    ckks_encoder.encode(complex_vals, parms_id, scale, destination.plaintext());
-  } else {
-    NGRAPH_CHECK(plaintext.size() <= slot_count, "Cannot encode ",
-                 plaintext.size(), " elements, maximum size is ", slot_count);
-    ckks_encoder.encode(plaintext, parms_id, scale, destination.plaintext());
-  }
-  destination.complex_packing() = complex_packing;
+   if (complex_packing) {
+     std::vector<std::complex<double>> complex_vals;
+     real_vec_to_complex_vec(complex_vals, double_vals);
+     NGRAPH_CHECK(complex_vals.size() <= slot_count, "Cannot encode ",
+                  complex_vals.size(), " elements, maximum size is ",
+                  slot_count);
+     ckks_encoder.encode(complex_vals, parms_id, scale,
+   destination.plaintext()); } else { NGRAPH_CHECK(plaintext.size() <=
+   slot_count, "Cannot encode ", plaintext.size(), " elements, maximum size is
+   ", slot_count); ckks_encoder.encode(plaintext, parms_id, scale,
+   destination.plaintext());
+   }
+   destination.complex_packing() = complex_packing; */
 }
 
 void ngraph::he::encode(ngraph::he::SealPlaintextWrapper& destination,
