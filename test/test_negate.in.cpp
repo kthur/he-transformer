@@ -14,6 +14,7 @@
 // limitations under the License.
 //*****************************************************************************
 
+#include "he_op_annotations.hpp"
 #include "ngraph/ngraph.hpp"
 #include "seal/he_seal_backend.hpp"
 #include "test_util.hpp"
@@ -22,74 +23,78 @@
 #include "util/test_control.hpp"
 #include "util/test_tools.hpp"
 
-using namespace std;
-using namespace ngraph;
+static std::string s_manifest = "${MANIFEST}";
 
-static string s_manifest = "${MANIFEST}";
+auto negate_test = [](const ngraph::Shape& shape, const bool arg1_encrypted,
+                      const bool complex_packing, const bool packed) {
+  auto backend = ngraph::runtime::Backend::create("${BACKEND_NAME}");
+  auto he_backend = static_cast<ngraph::he::HESealBackend*>(backend.get());
 
-NGRAPH_TEST(${BACKEND_NAME}, negate_2_3) {
-  auto backend = runtime::Backend::create("${BACKEND_NAME}");
-  Shape shape{2, 3};
-  {
-    auto a = make_shared<op::Parameter>(element::f32, shape);
-    auto t = make_shared<op::Negative>(a);
-    auto f = make_shared<Function>(t, ParameterVector{a});
-    auto tensors_list =
-        generate_plain_cipher_tensors({t}, {a}, backend.get(), true);
-    for (auto tensors : tensors_list) {
-      auto results = get<0>(tensors);
-      auto inputs = get<1>(tensors);
-      auto t_a = inputs[0];
-      auto t_result = results[0];
-      copy_data(
-          t_a, test::NDArray<float, 2>({{-3, -2, -1}, {0, 1, 2}}).get_vector());
-      auto handle = backend->compile(f);
-      handle->call_with_validate({t_result}, {t_a});
-      EXPECT_TRUE(all_close(
-          read_vector<float>(t_result),
-          (test::NDArray<float, 2>({{3, 2, 1}, {0, -1, -2}})).get_vector()));
-    }
+  if (complex_packing) {
+    he_backend->update_encryption_parameters(
+        ngraph::he::HESealEncryptionParameters::
+            default_complex_packing_parms());
   }
-  {
-    auto a = make_shared<op::Parameter>(element::f64, shape);
-    auto t = make_shared<op::Negative>(a);
-    auto f = make_shared<Function>(t, ParameterVector{a});
-    auto tensors_list =
-        generate_plain_cipher_tensors({t}, {a}, backend.get(), true);
-    for (auto tensors : tensors_list) {
-      auto results = get<0>(tensors);
-      auto inputs = get<1>(tensors);
-      auto t_a = inputs[0];
-      auto t_result = results[0];
-      copy_data(
-          t_a,
-          test::NDArray<double, 2>({{-3, -2, -1}, {0, 1, 2}}).get_vector());
-      auto handle = backend->compile(f);
-      handle->call_with_validate({t_result}, {t_a});
-      EXPECT_TRUE(all_close(
-          read_vector<double>(t_result),
-          (test::NDArray<double, 2>({{3, 2, 1}, {0, -1, -2}})).get_vector()));
+
+  auto a = std::make_shared<ngraph::op::Parameter>(ngraph::element::f32, shape);
+  auto t = std::make_shared<ngraph::op::Negative>(a);
+  auto f = std::make_shared<ngraph::Function>(t, ngraph::ParameterVector{a});
+
+  a->set_op_annotations(
+      ngraph::test::he::annotation_from_flags(false, arg1_encrypted, packed));
+
+  auto t_a = ngraph::test::he::tensor_from_flags(*he_backend, shape,
+                                                 arg1_encrypted, packed);
+  auto t_result = ngraph::test::he::tensor_from_flags(*he_backend, shape,
+                                                      arg1_encrypted, packed);
+
+  std::vector<float> input_a;
+  std::vector<float> exp_result;
+
+  for (int i = 0; i < shape_size(shape); ++i) {
+    if (i % 2 == 0) {
+      input_a.emplace_back(i);
+    } else {
+      input_a.emplace_back(1 - i);
     }
+    exp_result.emplace_back(-input_a.back());
   }
-  {
-    auto a = make_shared<op::Parameter>(element::i64, shape);
-    auto t = make_shared<op::Negative>(a);
-    auto f = make_shared<Function>(t, ParameterVector{a});
-    auto tensors_list =
-        generate_plain_cipher_tensors({t}, {a}, backend.get(), true);
-    for (auto tensors : tensors_list) {
-      auto results = get<0>(tensors);
-      auto inputs = get<1>(tensors);
-      auto t_a = inputs[0];
-      auto t_result = results[0];
-      copy_data(
-          t_a,
-          test::NDArray<int64_t, 2>({{-3, -2, -1}, {0, 1, 2}}).get_vector());
-      auto handle = backend->compile(f);
-      handle->call_with_validate({t_result}, {t_a});
-      EXPECT_TRUE(all_close(
-          read_vector<int64_t>(t_result),
-          (test::NDArray<int64_t, 2>({{3, 2, 1}, {0, -1, -2}})).get_vector()));
-    }
-  }
+  copy_data(t_a, input_a);
+
+  auto handle = backend->compile(f);
+  handle->call_with_validate({t_result}, {t_a});
+  EXPECT_TRUE(ngraph::test::he::all_close(read_vector<float>(t_result),
+                                          exp_result, 1e-3f));
+};
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_plain_real_unpacked) {
+  negate_test(ngraph::Shape{2, 3}, false, false, false);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_plain_real_packed) {
+  negate_test(ngraph::Shape{2, 3}, false, false, true);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_plain_complex_unpacked) {
+  negate_test(ngraph::Shape{2, 3}, false, true, false);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_plain_complex_packed) {
+  negate_test(ngraph::Shape{2, 3}, false, true, true);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_cipher_real_unpacked) {
+  negate_test(ngraph::Shape{2, 3}, true, false, false);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_cipher_real_packed) {
+  negate_test(ngraph::Shape{2, 3}, true, false, true);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_cipher_complex_unpacked) {
+  negate_test(ngraph::Shape{2, 3}, true, true, false);
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, negate_2_3_cipher_complex_packed) {
+  negate_test(ngraph::Shape{2, 3}, true, true, true);
 }

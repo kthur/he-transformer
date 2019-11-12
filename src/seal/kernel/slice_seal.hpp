@@ -16,25 +16,25 @@
 
 #pragma once
 
-#include <memory>
 #include <vector>
 
-#include "he_plaintext.hpp"
+#include "he_type.hpp"
 #include "ngraph/coordinate_transform.hpp"
-#include "seal/seal_ciphertext_wrapper.hpp"
 
-namespace ngraph {
-namespace he {
-void slice_seal(const std::vector<std::shared_ptr<SealCiphertextWrapper>>& arg,
-                std::vector<std::shared_ptr<SealCiphertextWrapper>>& out,
-                const Shape& arg_shape, const Coordinate& lower_bounds,
-                const Coordinate& upper_bounds, const Strides& strides,
-                const Shape& out_shape) {
+namespace ngraph::he {
+inline void slice_seal(const std::vector<HEType>& arg, std::vector<HEType>& out,
+                       const Shape& arg_shape, const Coordinate& lower_bounds,
+                       const Coordinate& upper_bounds, const Strides& strides,
+                       const Shape& out_shape) {
   CoordinateTransform input_transform(arg_shape, lower_bounds, upper_bounds,
                                       strides);
   CoordinateTransform output_transform(out_shape);
 
   CoordinateTransform::Iterator output_it = output_transform.begin();
+
+  NGRAPH_CHECK(shape_size(input_transform.get_target_shape()) ==
+                   shape_size(output_transform.get_target_shape()),
+               "Slice transform shape sizes don't match");
 
   for (const Coordinate& in_coord : input_transform) {
     const Coordinate& out_coord = *output_it;
@@ -46,24 +46,4 @@ void slice_seal(const std::vector<std::shared_ptr<SealCiphertextWrapper>>& arg,
   }
 }
 
-void slice_seal(const std::vector<HEPlaintext>& arg,
-                std::vector<HEPlaintext>& out, const Shape& arg_shape,
-                const Coordinate& lower_bounds, const Coordinate& upper_bounds,
-                const Strides& strides, const Shape& out_shape) {
-  CoordinateTransform input_transform(arg_shape, lower_bounds, upper_bounds,
-                                      strides);
-  CoordinateTransform output_transform(out_shape);
-
-  CoordinateTransform::Iterator output_it = output_transform.begin();
-
-  for (const Coordinate& in_coord : input_transform) {
-    const Coordinate& out_coord = *output_it;
-
-    out[output_transform.index(out_coord)] =
-        arg[input_transform.index(in_coord)];
-
-    ++output_it;
-  }
-}
-}  // namespace he
-}  // namespace ngraph
+}  // namespace ngraph::he

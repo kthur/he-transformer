@@ -14,6 +14,7 @@
 // limitations under the License.
 //*****************************************************************************
 
+#include "he_op_annotations.hpp"
 #include "ngraph/ngraph.hpp"
 #include "ngraph/pass/constant_folding.hpp"
 #include "ngraph/pass/core_fusion.hpp"
@@ -25,29 +26,38 @@
 #include "util/test_control.hpp"
 #include "util/test_tools.hpp"
 
-using namespace std;
-using namespace ngraph;
-
-static string s_manifest = "${MANIFEST}";
+static std::string s_manifest = "${MANIFEST}";
 
 template <typename T>
 class BatchNormInferenceTester {
  public:
   BatchNormInferenceTester(ngraph::he::HESealBackend* backend,
-                           const Shape& input_shape, element::Type etype,
-                           double epsilon)
+                           const ngraph::Shape& input_shape,
+                           ngraph::element::Type etype, double epsilon)
       : m_he_backend(backend) {
-    Shape channel_shape{input_shape.at(1)};
+    ngraph::Shape channel_shape{input_shape.at(1)};
 
-    auto Input = make_shared<op::Parameter>(etype, input_shape);
-    auto Gamma = make_shared<op::Parameter>(etype, channel_shape);
-    auto Beta = make_shared<op::Parameter>(etype, channel_shape);
-    auto Mean = make_shared<op::Parameter>(etype, channel_shape);
-    auto Variance = make_shared<op::Parameter>(etype, channel_shape);
-    auto BN = make_shared<op::BatchNormInference>(Input, Gamma, Beta, Mean,
-                                                  Variance, epsilon);
-    m_function = make_shared<Function>(
-        BN, ParameterVector{Input, Gamma, Beta, Mean, Variance});
+    auto input = std::make_shared<ngraph::op::Parameter>(etype, input_shape);
+    auto gamma = std::make_shared<ngraph::op::Parameter>(etype, channel_shape);
+    auto beta = std::make_shared<ngraph::op::Parameter>(etype, channel_shape);
+    auto mean = std::make_shared<ngraph::op::Parameter>(etype, channel_shape);
+    auto variance =
+        std::make_shared<ngraph::op::Parameter>(etype, channel_shape);
+    auto bn = std::make_shared<ngraph::op::BatchNormInference>(
+        input, gamma, beta, mean, variance, epsilon);
+    m_function = std::make_shared<ngraph::Function>(
+        bn, ngraph::ParameterVector{input, gamma, beta, mean, variance});
+
+    input->set_op_annotations(
+        ngraph::he::HEOpAnnotations::server_ciphertext_unpacked_annotation());
+    gamma->set_op_annotations(
+        ngraph::he::HEOpAnnotations::server_plaintext_unpacked_annotation());
+    beta->set_op_annotations(
+        ngraph::he::HEOpAnnotations::server_plaintext_unpacked_annotation());
+    mean->set_op_annotations(
+        ngraph::he::HEOpAnnotations::server_plaintext_unpacked_annotation());
+    variance->set_op_annotations(
+        ngraph::he::HEOpAnnotations::server_plaintext_unpacked_annotation());
 
     m_input = backend->create_cipher_tensor(etype, input_shape);
     m_gamma = backend->create_plain_tensor(etype, channel_shape);
@@ -70,12 +80,12 @@ class BatchNormInferenceTester {
     handle->call_with_validate({m_normed_input},
                                {m_input, m_gamma, m_beta, m_mean, m_variance});
     auto res_normed_input = read_vector<T>(m_normed_input);
-    return all_close(normed_input, res_normed_input);
+    return ngraph::test::he::all_close(normed_input, res_normed_input);
   }
 
  protected:
   ngraph::he::HESealBackend* m_he_backend;
-  std::shared_ptr<Function> m_function;
+  std::shared_ptr<ngraph::Function> m_function;
   std::shared_ptr<ngraph::runtime::Tensor> m_input;
   std::shared_ptr<ngraph::runtime::Tensor> m_gamma;
   std::shared_ptr<ngraph::runtime::Tensor> m_beta;
@@ -88,16 +98,16 @@ template <typename T>
 class BatchNormInferenceTesterZeroEpsilon : public BatchNormInferenceTester<T> {
  public:
   // These are for documentation purposes only below
-  using Input = test::NDArray<T, 2>;
-  using Gamma = test::NDArray<T, 1>;
-  using Beta = test::NDArray<T, 1>;
-  using Mean = test::NDArray<T, 1>;
-  using Variance = test::NDArray<T, 1>;
-  using NormedInput = test::NDArray<T, 2>;
+  using Input = ngraph::test::NDArray<T, 2>;
+  using Gamma = ngraph::test::NDArray<T, 1>;
+  using Beta = ngraph::test::NDArray<T, 1>;
+  using Mean = ngraph::test::NDArray<T, 1>;
+  using Variance = ngraph::test::NDArray<T, 1>;
+  using NormedInput = ngraph::test::NDArray<T, 2>;
 
   BatchNormInferenceTesterZeroEpsilon(ngraph::he::HESealBackend* backend,
-                                      element::Type etype)
-      : BatchNormInferenceTester<T>(backend, Shape{2, 3}, etype, 0.0) {}
+                                      ngraph::element::Type etype)
+      : BatchNormInferenceTester<T>(backend, ngraph::Shape{2, 3}, etype, 0.0) {}
 
   bool test(const Input& input, const Gamma& gamma, const Beta& beta,
             const Mean& mean, const Variance& variance,
@@ -141,16 +151,17 @@ class BatchNormInferenceTesterNonZeroEpsilon
     : public BatchNormInferenceTester<T> {
  public:
   // These are for documentation purposes only below
-  using Input = test::NDArray<T, 2>;
-  using Gamma = test::NDArray<T, 1>;
-  using Beta = test::NDArray<T, 1>;
-  using Mean = test::NDArray<T, 1>;
-  using Variance = test::NDArray<T, 1>;
-  using NormedInput = test::NDArray<T, 2>;
+  using Input = ngraph::test::NDArray<T, 2>;
+  using Gamma = ngraph::test::NDArray<T, 1>;
+  using Beta = ngraph::test::NDArray<T, 1>;
+  using Mean = ngraph::test::NDArray<T, 1>;
+  using Variance = ngraph::test::NDArray<T, 1>;
+  using NormedInput = ngraph::test::NDArray<T, 2>;
 
   BatchNormInferenceTesterNonZeroEpsilon(ngraph::he::HESealBackend* backend,
-                                         element::Type etype)
-      : BatchNormInferenceTester<T>(backend, Shape{2, 3}, etype, 0.25) {}
+                                         ngraph::element::Type etype)
+      : BatchNormInferenceTester<T>(backend, ngraph::Shape{2, 3}, etype, 0.25) {
+  }
 
   bool test(const Input& input, const Gamma& gamma, const Beta& beta,
             const Mean& mean, const Variance& variance,
@@ -190,11 +201,11 @@ class BatchNormInferenceTesterNonZeroEpsilon
 };
 
 NGRAPH_TEST(${BACKEND_NAME}, batch_norm_inference_0eps_f32) {
-  auto backend = runtime::Backend::create("${BACKEND_NAME}");
+  auto backend = ngraph::runtime::Backend::create("${BACKEND_NAME}");
   auto he_backend = static_cast<ngraph::he::HESealBackend*>(backend.get());
-  he_backend->set_pack_data(false);
 
-  BatchNormInferenceTesterZeroEpsilon<float> bnt(he_backend, element::f32);
+  BatchNormInferenceTesterZeroEpsilon<float> bnt(he_backend,
+                                                 ngraph::element::f32);
   EXPECT_TRUE(bnt.test_gamma()) << "Gamma test";
   EXPECT_TRUE(bnt.test_beta()) << "Beta test";
   EXPECT_TRUE(bnt.test_mean()) << "Mean test";
@@ -202,11 +213,11 @@ NGRAPH_TEST(${BACKEND_NAME}, batch_norm_inference_0eps_f32) {
 }
 
 NGRAPH_TEST(${BACKEND_NAME}, batch_norm_inference_f32) {
-  auto backend = runtime::Backend::create("${BACKEND_NAME}");
+  auto backend = ngraph::runtime::Backend::create("${BACKEND_NAME}");
   auto he_backend = static_cast<ngraph::he::HESealBackend*>(backend.get());
-  he_backend->set_pack_data(false);
 
-  BatchNormInferenceTesterNonZeroEpsilon<float> bnt(he_backend, element::f32);
+  BatchNormInferenceTesterNonZeroEpsilon<float> bnt(he_backend,
+                                                    ngraph::element::f32);
   EXPECT_TRUE(bnt.test_gamma()) << "Gamma test";
   EXPECT_TRUE(bnt.test_beta()) << "Beta test";
   EXPECT_TRUE(bnt.test_mean()) << "Mean test";
@@ -214,11 +225,11 @@ NGRAPH_TEST(${BACKEND_NAME}, batch_norm_inference_f32) {
 }
 
 NGRAPH_TEST(${BACKEND_NAME}, batch_norm_fusion) {
-  auto backend = runtime::Backend::create("INTERPRETER");
+  auto backend = ngraph::runtime::Backend::create("INTERPRETER");
 
-  Shape shape_input{1, 8, 3, 3};
-  Shape shape_weights{2, 8, 1, 1};
-  Shape shape_norm{2};
+  ngraph::Shape shape_input{1, 8, 3, 3};
+  ngraph::Shape shape_weights{2, 8, 1, 1};
+  ngraph::Shape shape_norm{2};
 
   std::vector<float> input{
       1.25f,  2.25f,  5.25f,  6.25f,  -1.25f, -1.25f, 3.25f, -4.25f, 7.25f,
@@ -239,41 +250,47 @@ NGRAPH_TEST(${BACKEND_NAME}, batch_norm_fusion) {
   std::vector<float> mean_vals{0.12f, 0.31f};
   std::vector<float> var_vals{0.01f, 0.11f};
 
-  auto et = element::f32;
+  auto et = ngraph::element::f32;
 
   auto make_function = [shape_input, shape_weights, shape_norm, gamma_vals,
                         weight_vals, beta_vals, mean_vals, var_vals, et]() {
-    auto input_parm = std::make_shared<op::Parameter>(et, shape_input);
+    auto input_parm = std::make_shared<ngraph::op::Parameter>(et, shape_input);
     auto weights =
-        std::make_shared<op::Constant>(et, shape_weights, weight_vals);
+        std::make_shared<ngraph::op::Constant>(et, shape_weights, weight_vals);
     double eps = 0.001;
-    auto gamma = std::make_shared<op::Constant>(et, shape_norm, gamma_vals);
-    auto beta = std::make_shared<op::Constant>(et, shape_norm, beta_vals);
-    auto mean = std::make_shared<op::Constant>(et, shape_norm, mean_vals);
-    auto var = std::make_shared<op::Constant>(et, shape_norm, var_vals);
-    auto conv = std::make_shared<op::Convolution>(input_parm, weights,
-                                                  Strides{1, 1}, Strides{1, 1});
-    auto bn = std::make_shared<op::BatchNormInference>(conv, gamma, beta, mean,
-                                                       var, eps);
-    auto f = make_shared<Function>(NodeVector{bn}, ParameterVector{input_parm});
+    auto gamma =
+        std::make_shared<ngraph::op::Constant>(et, shape_norm, gamma_vals);
+    auto beta =
+        std::make_shared<ngraph::op::Constant>(et, shape_norm, beta_vals);
+    auto mean =
+        std::make_shared<ngraph::op::Constant>(et, shape_norm, mean_vals);
+    auto var = std::make_shared<ngraph::op::Constant>(et, shape_norm, var_vals);
+    auto conv = std::make_shared<ngraph::op::Convolution>(
+        input_parm, weights, ngraph::Strides{1, 1}, ngraph::Strides{1, 1});
+    auto bn = std::make_shared<ngraph::op::BatchNormInference>(
+        conv, gamma, beta, mean, var, eps);
+    auto f = std::make_shared<ngraph::Function>(
+        ngraph::NodeVector{bn}, ngraph::ParameterVector{input_parm});
     return f;
   };
 
   auto orig_f = make_function();
   auto opt_f = make_function();
 
-  pass::Manager pass_manager_opt;
+  ngraph::pass::Manager pass_manager_opt;
 
-  pass_manager_opt.register_pass<pass::CoreFusion>();
-  pass_manager_opt.register_pass<pass::ConstantFolding>();
+  pass_manager_opt.register_pass<ngraph::pass::CoreFusion>();
+  pass_manager_opt.register_pass<ngraph::pass::ConstantFolding>();
   pass_manager_opt.run_passes(opt_f);
 
   auto orig_ops = orig_f->get_ordered_ops();
   auto new_ops = opt_f->get_ordered_ops();
 
-  auto t_orig_result = backend->create_tensor(element::f32, {1, 2, 3, 3});
-  auto t_opt_result = backend->create_tensor(element::f32, {1, 2, 3, 3});
-  auto t_input = backend->create_tensor(element::f32, shape_input);
+  auto t_orig_result =
+      backend->create_tensor(ngraph::element::f32, {1, 2, 3, 3});
+  auto t_opt_result =
+      backend->create_tensor(ngraph::element::f32, {1, 2, 3, 3});
+  auto t_input = backend->create_tensor(ngraph::element::f32, shape_input);
 
   copy_data(t_input, input);
 
@@ -283,170 +300,6 @@ NGRAPH_TEST(${BACKEND_NAME}, batch_norm_fusion) {
   orig_exec->call_with_validate({t_orig_result}, {t_input});
   opt_exec->call_with_validate({t_opt_result}, {t_input});
 
-  EXPECT_TRUE(test::all_close(read_vector<float>(t_orig_result),
-                              read_vector<float>(t_opt_result)));
-}
-
-NGRAPH_TEST(${BACKEND_NAME}, batch_norm_fusion_he) {
-  auto backend = runtime::Backend::create("${BACKEND_NAME}");
-  auto he_backend = static_cast<ngraph::he::HESealBackend*>(backend.get());
-  he_backend->set_pack_data(false);
-
-  Shape shape_input{1, 8, 3, 3};
-  Shape shape_weights{2, 8, 1, 1};
-  Shape shape_norm{2};
-
-  std::vector<float> input{
-      1.25f,  2.25f,  5.25f,  6.25f,  -1.25f, -1.25f, 3.25f, -4.25f, 7.25f,
-      8.25f,  -1.25f, -1.25f, 1.25f,  2.25f,  -3.25f, 2.25f, 4.25f,  4.25f,
-      1.25f,  2.25f,  -4.25f, 2.25f,  4.25f,  4.25f,  0.f,   0.f,    -1.f,
-      0.f,    2.f,    2.f,    0.f,    0.f,    0.f,    0.f,   2.f,    2.f,
-      1.25f,  2.25f,  5.25f,  6.25f,  1.25f,  1.25f,  3.25f, 4.25f,  -7.25f,
-      8.25f,  1.25f,  -1.25f, -1.25f, 2.25f,  3.25f,  2.25f, -4.25f, -4.25f,
-      -1.25f, -2.25f, 4.25f,  2.25f,  4.25f,  4.25f,  0.f,   0.f,    1.f,
-      0.f,    -2.f,   2.f,    0.f,    0.f,    0.f,    0.f,   -2.f,   -2.f};
-
-  std::vector<float> weight_vals{1.25f, 2.25f,  5.25f, 6.25f, -1.25f, -1.25f,
-                                 3.25f, -4.25f, 7.25f, 8.25f, -1.25f, 0.f,
-                                 0.f,   0.f,    0.f,   -2.f};
-
-  std::vector<float> gamma_vals{-0.25f, 0.01875f};
-  std::vector<float> beta_vals{11.0f, 1.25f};
-  std::vector<float> mean_vals{0.125f, 0.25f};
-  std::vector<float> var_vals{0.25f, 0.125f};
-
-  auto et = element::f32;
-
-  auto make_function = [shape_input, shape_weights, shape_norm, gamma_vals,
-                        weight_vals, beta_vals, mean_vals, var_vals, et]() {
-    auto input_parm = std::make_shared<op::Parameter>(et, shape_input);
-    auto weights =
-        std::make_shared<op::Constant>(et, shape_weights, weight_vals);
-    double eps = 0.001;
-    auto gamma = std::make_shared<op::Constant>(et, shape_norm, gamma_vals);
-    auto beta = std::make_shared<op::Constant>(et, shape_norm, beta_vals);
-    auto mean = std::make_shared<op::Constant>(et, shape_norm, mean_vals);
-    auto var = std::make_shared<op::Constant>(et, shape_norm, var_vals);
-    auto conv = std::make_shared<op::Convolution>(input_parm, weights,
-                                                  Strides{1, 1}, Strides{1, 1});
-    auto bn = std::make_shared<op::BatchNormInference>(conv, gamma, beta, mean,
-                                                       var, eps);
-    auto f = make_shared<Function>(NodeVector{bn}, ParameterVector{input_parm});
-    return f;
-  };
-
-  auto orig_f = make_function();
-  auto opt_f = make_function();
-
-  pass::Manager pass_manager_opt;
-
-  pass_manager_opt.register_pass<pass::CoreFusion>();
-  pass_manager_opt.register_pass<pass::ConstantFolding>();
-  pass_manager_opt.run_passes(opt_f);
-
-  auto orig_ops = orig_f->get_ordered_ops();
-  auto new_ops = opt_f->get_ordered_ops();
-
-  auto t_orig_result =
-      he_backend->create_cipher_tensor(element::f32, {1, 2, 3, 3});
-  auto t_opt_result =
-      he_backend->create_cipher_tensor(element::f32, {1, 2, 3, 3});
-  auto t_input = he_backend->create_cipher_tensor(element::f32, shape_input);
-
-  copy_data(t_input, input);
-
-  auto orig_handle = he_backend->compile(orig_f);
-  auto new_handle = he_backend->compile(opt_f);
-
-  orig_handle->call_with_validate({t_orig_result}, {t_input});
-  new_handle->call_with_validate({t_opt_result}, {t_input});
-
-  // TODO: more precision
-  EXPECT_TRUE(test::all_close(read_vector<float>(t_orig_result),
-                              read_vector<float>(t_opt_result), 1e-5f, 0.2f));
-}
-
-NGRAPH_TEST(${BACKEND_NAME}, batch_norm_fusion_he_batch) {
-  auto backend = runtime::Backend::create("${BACKEND_NAME}");
-  auto he_backend = static_cast<ngraph::he::HESealBackend*>(backend.get());
-  he_backend->set_pack_data(false);
-
-  size_t batch_size = 1;
-
-  Shape shape_input{batch_size, 8, 3, 3};
-  Shape shape_weights{2, 8, 1, 1};
-  Shape shape_norm{2};
-
-  std::vector<float> input{
-      1.25f,  2.25f,  5.25f,  6.25f,  -1.25f, -1.25f, 3.25f, -4.25f, 7.25f,
-      8.25f,  -1.25f, -1.25f, 1.25f,  2.25f,  -3.25f, 2.25f, 4.25f,  4.25f,
-      1.25f,  2.25f,  -4.25f, 2.25f,  4.25f,  4.25f,  0.f,   0.f,    -1.f,
-      0.f,    2.f,    2.f,    0.f,    0.f,    0.f,    0.f,   2.f,    2.f,
-      1.25f,  2.25f,  5.25f,  6.25f,  1.25f,  1.25f,  3.25f, 4.25f,  -7.25f,
-      8.25f,  1.25f,  -1.25f, -1.25f, 2.25f,  3.25f,  2.25f, -4.25f, -4.25f,
-      -1.25f, -2.25f, 4.25f,  2.25f,  4.25f,  4.25f,  0.f,   0.f,    1.f,
-      0.f,    -2.f,   2.f,    0.f,    0.f,    0.f,    0.f,   -2.f,   -2.f};
-  for (size_t i = 1; i < batch_size; ++i) {
-    copy(input.begin(), input.end(), std::back_inserter(input));
-  }
-
-  std::vector<float> weight_vals{1.25f, 2.25f,  5.25f, 6.25f, -1.25f, -1.25f,
-                                 3.25f, -4.25f, 7.25f, 8.25f, -1.25f, 0.f,
-                                 0.f,   0.f,    0.f,   -2.f};
-
-  std::vector<float> gamma_vals{-0.25f, 0.01875f};
-  std::vector<float> beta_vals{11.0f, 1.25f};
-  std::vector<float> mean_vals{0.125f, 0.25f};
-  std::vector<float> var_vals{0.25f, 0.125f};
-
-  auto et = element::f32;
-
-  auto make_function = [shape_input, shape_weights, shape_norm, gamma_vals,
-                        weight_vals, beta_vals, mean_vals, var_vals, et]() {
-    auto input_parm = std::make_shared<op::Parameter>(et, shape_input);
-    auto weights =
-        std::make_shared<op::Constant>(et, shape_weights, weight_vals);
-    double eps = 0.001;
-    auto gamma = std::make_shared<op::Constant>(et, shape_norm, gamma_vals);
-    auto beta = std::make_shared<op::Constant>(et, shape_norm, beta_vals);
-    auto mean = std::make_shared<op::Constant>(et, shape_norm, mean_vals);
-    auto var = std::make_shared<op::Constant>(et, shape_norm, var_vals);
-    auto conv = std::make_shared<op::Convolution>(input_parm, weights,
-                                                  Strides{1, 1}, Strides{1, 1});
-    auto bn = std::make_shared<op::BatchNormInference>(conv, gamma, beta, mean,
-                                                       var, eps);
-    auto f = make_shared<Function>(NodeVector{bn}, ParameterVector{input_parm});
-    return f;
-  };
-
-  auto orig_f = make_function();
-  auto opt_f = make_function();
-
-  pass::Manager pass_manager_opt;
-
-  pass_manager_opt.register_pass<pass::CoreFusion>();
-  pass_manager_opt.register_pass<pass::ConstantFolding>();
-  pass_manager_opt.run_passes(opt_f);
-
-  auto orig_ops = orig_f->get_ordered_ops();
-  auto new_ops = opt_f->get_ordered_ops();
-
-  auto t_orig_result = he_backend->create_packed_cipher_tensor(
-      element::f32, {batch_size, 2, 3, 3});
-  auto t_opt_result = he_backend->create_packed_cipher_tensor(
-      element::f32, {batch_size, 2, 3, 3});
-  auto t_input =
-      he_backend->create_packed_cipher_tensor(element::f32, shape_input);
-
-  copy_data(t_input, input);
-
-  auto orig_handle = he_backend->compile(orig_f);
-  auto new_handle = he_backend->compile(opt_f);
-
-  orig_handle->call_with_validate({t_orig_result}, {t_input});
-  new_handle->call_with_validate({t_opt_result}, {t_input});
-
-  // TODO: more precision
-  EXPECT_TRUE(test::all_close(read_vector<float>(t_orig_result),
-                              read_vector<float>(t_opt_result), 0.6f));
+  EXPECT_TRUE(ngraph::test::all_close(read_vector<float>(t_orig_result),
+                                      read_vector<float>(t_opt_result)));
 }

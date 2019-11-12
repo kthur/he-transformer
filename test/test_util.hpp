@@ -20,29 +20,19 @@
 #include <string>
 #include <vector>
 
+#include "he_op_annotations.hpp"
 #include "he_tensor.hpp"
+#include "logging/ngraph_he_log.hpp"
 #include "ngraph/descriptor/layout/tensor_layout.hpp"
 #include "ngraph/file_util.hpp"
 #include "ngraph/node.hpp"
 #include "ngraph/runtime/tensor.hpp"
 #include "ngraph/type/element_type.hpp"
 #include "seal/he_seal_backend.hpp"
-#include "seal/he_seal_cipher_tensor.hpp"
 
-std::vector<float> read_binary_constant(const std::string filename,
-                                        size_t num_elements);
-std::vector<float> read_constant(const std::string filename);
-
-// ys is logits output, or one-hot encoded ground truth
-std::vector<int> batched_argmax(const std::vector<float>& ys);
-
-void write_constant(const std::vector<float>& values,
-                    const std::string filename);
-void write_binary_constant(const std::vector<float>& values,
-                           const std::string filename);
-
-float get_accuracy(const std::vector<float>& pre_sigmoid,
-                   const std::vector<float>& y);
+namespace ngraph {
+namespace test {
+namespace he {
 
 template <typename T>
 bool all_close(const std::vector<std::complex<T>>& a,
@@ -70,10 +60,43 @@ bool all_close(const std::vector<T>& a, const std::vector<T>& b,
   return close;
 }
 
-std::vector<std::tuple<std::vector<std::shared_ptr<ngraph::runtime::Tensor>>,
-                       std::vector<std::shared_ptr<ngraph::runtime::Tensor>>>>
-generate_plain_cipher_tensors(
-    const std::vector<std::shared_ptr<ngraph::Node>>& output,
-    const std::vector<std::shared_ptr<ngraph::Node>>& input,
-    const ngraph::runtime::Backend* backend, const bool consistent_type = false,
-    const bool skip_plain_plain = false);
+inline std::shared_ptr<ngraph::he::HEOpAnnotations> annotation_from_flags(
+    const bool from_client, const bool encrypted, const bool packed) {
+  if (!from_client && encrypted && packed) {
+    return ngraph::he::HEOpAnnotations::server_ciphertext_packed_annotation();
+  } else if (!from_client && encrypted && !packed) {
+    return ngraph::he::HEOpAnnotations::server_ciphertext_unpacked_annotation();
+  } else if (!from_client && !encrypted && packed) {
+    return ngraph::he::HEOpAnnotations::server_plaintext_packed_annotation();
+  } else if (!from_client && !encrypted && !packed) {
+    return ngraph::he::HEOpAnnotations::server_plaintext_unpacked_annotation();
+  } else if (from_client && encrypted && packed) {
+    return ngraph::he::HEOpAnnotations::client_ciphertext_packed_annotation();
+  } else if (from_client && encrypted && !packed) {
+    return ngraph::he::HEOpAnnotations::client_ciphertext_unpacked_annotation();
+  } else if (from_client && !encrypted && packed) {
+    return ngraph::he::HEOpAnnotations::client_plaintext_packed_annotation();
+  } else if (from_client && !encrypted && !packed) {
+    return ngraph::he::HEOpAnnotations::client_plaintext_unpacked_annotation();
+  }
+  throw ngraph_error("Logic error");
+};
+
+inline std::shared_ptr<ngraph::runtime::Tensor> tensor_from_flags(
+    ngraph::he::HESealBackend& he_seal_backend, const ngraph::Shape& shape,
+    const bool encrypted, const bool packed) {
+  if (encrypted && packed) {
+    return he_seal_backend.create_packed_cipher_tensor(element::f32, shape);
+  } else if (encrypted && !packed) {
+    return he_seal_backend.create_cipher_tensor(element::f32, shape);
+  } else if (!encrypted && packed) {
+    return he_seal_backend.create_packed_plain_tensor(element::f32, shape);
+  } else if (!encrypted && !packed) {
+    return he_seal_backend.create_plain_tensor(element::f32, shape);
+  }
+  throw ngraph_error("Logic error");
+};
+
+}  // namespace he
+}  // namespace test
+}  // namespace ngraph

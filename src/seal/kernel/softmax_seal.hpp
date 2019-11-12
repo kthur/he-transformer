@@ -14,17 +14,19 @@
 // limitations under the License.
 //*****************************************************************************
 
-#include <dlfcn.h>
-#include <chrono>
-#include <functional>
-#include <iostream>
+#pragma once
 
-#include "gtest/gtest.h"
+#include <vector>
 
-using namespace std;
+#include "he_type.hpp"
+#include "ngraph/coordinate_transform.hpp"
+#include "ngraph/shape_util.hpp"
+#include "seal/he_seal_backend.hpp"
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  int rc = RUN_ALL_TESTS();
-  return rc;
-}
+namespace ngraph::he {
+void softmax_seal(std::vector<HEType>& arg, std::vector<HEType>& out,
+                  const Shape& shape, const AxisSet& axes,
+                  const element::Type& element_type,
+                  HESealBackend& he_seal_backend);
+
+}  // namespace ngraph::he

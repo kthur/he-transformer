@@ -16,18 +16,19 @@
 
 #pragma once
 
+#include <memory>
+
 #include "ngraph/pass/graph_rewrite.hpp"
 
-namespace ngraph {
-namespace he {
-namespace pass {
+namespace ngraph::he::pass {
 
-// An aggressive version of Liveness which will delete the parameter node and
-// any constant nodes
+/// \brief An aggressive version of Liveness which will delete the parameter
+/// node and any constant nodes
 class HELiveness : public ngraph::pass::FunctionPass {
  public:
-  bool run_on_function(std::shared_ptr<ngraph::Function>) override;
+  /// \brief Performs HELiveness pass on given function
+  /// \param[in,out] function Function to perform pass on
+  /// \returns false, indicating the function has not been modified
+  bool run_on_function(std::shared_ptr<ngraph::Function> function) override;
 };
-}  // namespace pass
-}  // namespace he
-}  // namespace ngraph
+}  // namespace ngraph::he::pass

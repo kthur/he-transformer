@@ -15,17 +15,16 @@
 # *****************************************************************************
 
 import tensorflow as tf
-
 from tensorflow.python.platform import gfile
 
 import ngraph_bridge
-import json
 import pyhe_client
-import time
+
 import numpy as np
 import argparse
 import os
-
+import util
+import numpy as np
 from PIL import Image
 from util import get_imagenet_inference_labels, \
                  get_imagenet_training_labels, \
@@ -33,10 +32,6 @@ from util import get_imagenet_inference_labels, \
                  get_validation_images, \
                  get_validation_labels, \
                  str2bool
-import util
-import numpy as np
-
-FLAGS = None
 
 
 def print_nodes(filename):
@@ -68,8 +63,6 @@ def get_imagenet_labels():
 
 
 def main(FLAGS):
-    util.VAL_IMAGE_FLAGS = FLAGS
-
     imagenet_inference_labels = get_imagenet_inference_labels()
     imagenet_training_labels = get_imagenet_training_labels()
     assert (
@@ -90,16 +83,9 @@ def main(FLAGS):
     x_test_flat = x_test.flatten(order='C')
     port = 34000
 
-    if 'NGRAPH_COMPLEX_PACK' in os.environ:
-        complex_packing = str2bool(os.environ['NGRAPH_COMPLEX_PACK'])
-    else:
-        complex_packing = False
-
     client = pyhe_client.HESealClient(FLAGS.hostname, port, batch_size,
-                                      x_test_flat, complex_packing)
+                                      {'input': ('encrypt', x_test_flat)})
 
-    while not client.is_done():
-        time.sleep(1)
     results = client.get_results()
 
     imagenet_labels = get_imagenet_labels()

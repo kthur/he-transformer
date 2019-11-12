@@ -16,50 +16,49 @@
 
 #pragma once
 
-#include <memory>
+#include <ostream>
 #include <vector>
 
-#include "ngraph/assertion.hpp"
-#include "seal/seal.h"
+#include "ngraph/type/element_type.hpp"
 
-namespace ngraph {
-namespace he {
-class HEPlaintext {
+namespace ngraph::he {
+/// \brief Class representing a plaintext value
+class HEPlaintext : public std::vector<double> {
  public:
   HEPlaintext() = default;
+  ~HEPlaintext() = default;
+  HEPlaintext(const std::initializer_list<double>& values)
+      : std::vector<double>(values) {}
 
-  HEPlaintext(const std::vector<double>& values) : m_values(values) {
-    if (values.size() > 0) {
-      m_first_val = values[0];
-    }
+  HEPlaintext(const HEPlaintext& plain) = default;
+  HEPlaintext(HEPlaintext&& plain) = default;
+
+  explicit HEPlaintext(const std::vector<double>& values)
+      : std::vector<double>(values) {}
+
+  explicit HEPlaintext(std::vector<double>&& values)
+      : std::vector<double>(std::move(values)) {}
+
+  explicit HEPlaintext(size_t n, double initial_value = 0)
+      : std::vector<double>(n, initial_value) {}
+
+  template <class InputIterator>
+  HEPlaintext(InputIterator first, InputIterator last)
+      : std::vector<double>(first, last) {}
+
+  HEPlaintext& operator=(const HEPlaintext& v) {
+    static_cast<std::vector<double>*>(this)->operator=(v);
+    return *this;
   }
-  HEPlaintext(const double value)
-      : m_first_val(value), m_values{std::vector<double>{value}} {}
 
-  const std::vector<double>& values() const { return m_values; }
-
-  double first_value() const { return m_first_val; }
-
-  void set_value(const double value) {
-    m_first_val = value;
-    m_values = std::vector<double>{value};
+  HEPlaintext& operator=(HEPlaintext&& v) noexcept {
+    static_cast<std::vector<double>*>(this)->operator=(v);
+    return *this;
   }
 
-  void set_values(const std::vector<double>& values) {
-    m_values = values;
-    if (values.size() > 0) {
-      m_first_val = m_values[0];
-    }
-  }
-
-  bool is_single_value() const { return num_values() == 1; }
-  size_t num_values() const { return m_values.size(); }
-
-  static constexpr size_t type_byte_size = sizeof(double);
-
- private:
-  double m_first_val;
-  std::vector<double> m_values;
+  /// \brief Writes the plaintext to the target as a vector of type
+  void write(void* target, const element::Type& element_type);
 };
-}  // namespace he
-}  // namespace ngraph
+
+std::ostream& operator<<(std::ostream& os, const HEPlaintext& plain);
+}  // namespace ngraph::he

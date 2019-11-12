@@ -21,18 +21,19 @@ The [examples](https://github.com/NervanaSystems/he-transformer/tree/master/exam
 
 ### Dependencies
 - Operating system: Ubuntu 16.04, Ubuntu 18.04.
-- CMake >= 3.10
+- CMake >= 3.12
 - Compiler: g++ version >= 6.0, clang >= 5.0
 - OpenMP is strongly suggested, though not strictly necessary. You may experience slow runtimes without OpenMP
 - python3 and pip3
 - virtualenv v16.1.0
 - bazel v0.25.2
 #### The following dependencies are built automatically
-- [nGraph](https://github.com/NervanaSystems/ngraph) - v0.25.0
-- [nGraph-tf](https://github.com/tensorflow/ngraph-bridge) - v0.18.0
-- [SEAL](https://github.com/Microsoft/SEAL) - v3.3.1
+- [nGraph](https://github.com/NervanaSystems/ngraph) - v0.25.1-rc.8
+- [nGraph-tf](https://github.com/tensorflow/ngraph-bridge) - commit cad093d84cc3a1ce212d8a96c67217321b44309b
+- [SEAL](https://github.com/Microsoft/SEAL) - v3.4.2
 - [TensorFlow](https://github.com/tensorflow/tensorflow) - v1.14.0
-- Boost 1.69
+- [Boost](https://github.com/boostorg) v1.69
+- [Google protobuf](https://github.com/protocolbuffers/protobuf) v3.9.1
 
 We also offer [docker containers](https://github.com/NervanaSystems/he-transformer/tree/master/contrib/docker) and builds of he-transformer on a reference OS.
 
@@ -55,14 +56,31 @@ cd he-transformer
 export HE_TRANSFORMER=$(pwd)
 mkdir build
 cd $HE_TRANSFORMER/build
-cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DCMAKE_C_COMPILER=gcc-7
+cmake .. -DCMAKE_CXX_COMPILER=clang++-6.0
 make install
 source external/venv-tf-py3/bin/activate
 ```
 
-#### 1.b Python bindings for client
-To build an experimental client-server model with python bindings, see the [python](https://github.com/NervanaSystems/he-transformer/tree/master/python) folder.
-***Note***: This feature is experimental. For best experience, you should skip this step.
+Note, you may need sudo permissions to install he_seal_backend to the default location. To set a custom installation prefix, add the `-DCMAKE_INSTALL_PREFIX=~/my_install_prefix` flag to the cmake command.
+
+
+#### 1a. To build documentation
+First install doxygen, i.e.
+```bash
+sudo apt-get install doxygen
+```
+Then add the following CMake flag
+```bash
+cmake .. -DNGRAPH_HE_DOC_BUILD_ENABLE=ON
+```
+and call
+```bash
+make docs
+```
+to create doxygen documentation in `$HE_TRANSFORMER/build/doc/doxygen`.
+
+#### 1b. Python bindings for client
+To build an client-server model with python bindings, see the [python](https://github.com/NervanaSystems/he-transformer/tree/master/python) folder.
 
 ### 2. Run C++ unit-tests
 Ensure the virtual environment is active, i.e. run `source $HE_TRANSFORMER/build/external/venv-tf-py3/bin/activate`

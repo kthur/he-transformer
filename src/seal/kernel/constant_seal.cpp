@@ -14,18 +14,19 @@
 // limitations under the License.
 //*****************************************************************************
 
+#include "seal/kernel/constant_seal.hpp"
+
 #include <memory>
 #include <vector>
 
-#include "seal/kernel/constant_seal.hpp"
 #include "seal/seal_util.hpp"
 #include "util.hpp"
 
-void ngraph::he::constant_seal(std::vector<ngraph::he::HEPlaintext>& out,
-                               const element::Type& element_type,
-                               const void* data_ptr,
-                               const ngraph::he::HESealBackend& he_seal_backend,
-                               size_t count) {
+namespace ngraph::he {
+
+void constant_seal(std::vector<HEType>& out, const element::Type& element_type,
+                   const void* data_ptr, const HESealBackend& he_seal_backend,
+                   size_t count) {
   NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
                "Unsupported type ", element_type);
   size_t type_byte_size = element_type.size();
@@ -36,28 +37,15 @@ void ngraph::he::constant_seal(std::vector<ngraph::he::HEPlaintext>& out,
 #pragma omp parallel for
   for (size_t i = 0; i < count; ++i) {
     const void* src = static_cast<const char*>(data_ptr) + i * type_byte_size;
-    double value = ngraph::he::type_to_double(src, element_type);
-    out[i].set_value(value);
+    auto plaintext =
+        HEPlaintext(std::vector<double>{type_to_double(src, element_type)});
+    if (out[i].is_plaintext()) {
+      out[i].set_plaintext(plaintext);
+    } else {
+      he_seal_backend.encrypt(out[i].get_ciphertext(), plaintext, element_type,
+                              he_seal_backend.complex_packing());
+    }
   }
 }
 
-void ngraph::he::constant_seal(
-    std::vector<std::shared_ptr<ngraph::he::SealCiphertextWrapper>>& out,
-    const element::Type& element_type, const void* data_ptr,
-    const ngraph::he::HESealBackend& he_seal_backend, size_t count) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-
-  size_t type_byte_size = element_type.size();
-  if (out.size() != count) {
-    throw ngraph_error("out.size() != count for constant op");
-  }
-
-#pragma omp parallel for
-  for (size_t i = 0; i < count; ++i) {
-    const void* src = static_cast<const char*>(data_ptr) + i * type_byte_size;
-    auto plaintext = HEPlaintext(ngraph::he::type_to_double(src, element_type));
-    he_seal_backend.encrypt(out[i], plaintext, element_type,
-                            he_seal_backend.complex_packing());
-  }
-}
+}  // namespace ngraph::he

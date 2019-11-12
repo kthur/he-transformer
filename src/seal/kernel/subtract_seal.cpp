@@ -15,88 +15,59 @@
 //*****************************************************************************
 
 #include "seal/kernel/subtract_seal.hpp"
+
 #include "seal/kernel/add_seal.hpp"
 #include "seal/kernel/negate_seal.hpp"
 #include "seal/seal_util.hpp"
 
-void ngraph::he::scalar_subtract_seal(
-    ngraph::he::SealCiphertextWrapper& arg0,
-    ngraph::he::SealCiphertextWrapper& arg1,
-    std::shared_ptr<ngraph::he::SealCiphertextWrapper>& out,
-    const element::Type& element_type, HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-  if (arg0.known_value() && arg1.known_value()) {
-    out->known_value() = true;
-    out->value() = arg0.value() - arg1.value();
-  } else if (arg0.known_value()) {
-    HEPlaintext p(arg0.value());
-    scalar_subtract_seal(p, arg1, out, element_type, he_seal_backend);
-    out->known_value() = false;
-  } else if (arg1.known_value()) {
-    HEPlaintext p(arg1.value());
-    scalar_subtract_seal(arg0, p, out, element_type, he_seal_backend);
-    out->known_value() = false;
+namespace ngraph::he {
+
+void scalar_subtract_seal(SealCiphertextWrapper& arg0,
+                          SealCiphertextWrapper& arg1,
+                          std::shared_ptr<SealCiphertextWrapper>& out,
+                          HESealBackend& he_seal_backend,
+                          const seal::MemoryPoolHandle& pool) {
+  match_modulus_and_scale_inplace(arg0, arg1, he_seal_backend, pool);
+  he_seal_backend.get_evaluator()->sub(arg0.ciphertext(), arg1.ciphertext(),
+                                       out->ciphertext());
+}
+
+void scalar_subtract_seal(SealCiphertextWrapper& arg0, const HEPlaintext& arg1,
+                          std::shared_ptr<SealCiphertextWrapper>& out,
+                          const bool complex_packing,
+                          HESealBackend& he_seal_backend) {
+  HEPlaintext neg_arg1(arg1.size());
+  std::transform(arg1.cbegin(), arg1.cend(), neg_arg1.begin(), std::negate<>());
+  scalar_add_seal(arg0, neg_arg1, out, complex_packing, he_seal_backend);
+}
+
+void scalar_subtract_seal(const HEPlaintext& arg0, SealCiphertextWrapper& arg1,
+                          std::shared_ptr<SealCiphertextWrapper>& out,
+                          const bool complex_packing,
+                          HESealBackend& he_seal_backend) {
+  auto tmp = HESealBackend::create_empty_ciphertext();
+  scalar_negate_seal(arg1, tmp, he_seal_backend);
+  scalar_add_seal(arg0, *tmp, out, complex_packing, he_seal_backend);
+}
+
+void scalar_subtract_seal(const HEPlaintext& arg0, const HEPlaintext& arg1,
+                          HEPlaintext& out) {
+  HEPlaintext out_vals;
+  if (arg0.size() == 1) {
+    out_vals.resize(arg1.size());
+    std::transform(arg1.begin(), arg1.end(), out_vals.begin(),
+                   [&](auto x) { return arg0[0] - x; });
+  } else if (arg1.size() == 1) {
+    out_vals.resize(arg0.size());
+    std::transform(arg0.begin(), arg0.end(), out_vals.begin(),
+                   [&](auto x) { return x - arg1[0]; });
   } else {
-    he_seal_backend.get_evaluator()->sub(arg0.ciphertext(), arg1.ciphertext(),
-                                         out->ciphertext());
-    out->known_value() = false;
+    size_t min_size = std::min(arg0.size(), arg1.size());
+    out_vals.resize(min_size);
+    for (size_t i = 0; i < min_size; ++i) {
+      out_vals[i] = arg0[i] - arg1[i];
+    }
   }
+  out = std::move(out_vals);
 }
-
-void ngraph::he::scalar_subtract_seal(
-    ngraph::he::SealCiphertextWrapper& arg0, const HEPlaintext& arg1,
-    std::shared_ptr<ngraph::he::SealCiphertextWrapper>& out,
-    const element::Type& element_type, HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-  if (arg0.known_value()) {
-    NGRAPH_CHECK(arg1.is_single_value(), "arg1 is not single value");
-    out->known_value() = true;
-    out->value() = arg0.value() - arg1.first_value();
-    out->complex_packing() = arg0.complex_packing();
-  } else {
-    auto p = SealPlaintextWrapper(arg0.complex_packing());
-    ngraph::he::encode(p, arg1, *he_seal_backend.get_ckks_encoder(),
-                       arg0.ciphertext().parms_id(), element_type,
-                       arg0.ciphertext().scale(), arg0.complex_packing());
-    he_seal_backend.get_evaluator()->sub_plain(arg0.ciphertext(), p.plaintext(),
-                                               out->ciphertext());
-    out->known_value() = false;
-  }
-}
-
-void ngraph::he::scalar_subtract_seal(
-    const HEPlaintext& arg0, SealCiphertextWrapper& arg1,
-    std::shared_ptr<SealCiphertextWrapper>& out,
-    const element::Type& element_type, HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-  if (arg1.known_value()) {
-    NGRAPH_CHECK(arg0.is_single_value(), "arg0 is not single value");
-    out->known_value() = true;
-    out->value() = arg0.first_value() - arg1.value();
-    out->complex_packing() = arg1.complex_packing();
-  } else {
-    auto tmp = std::make_shared<ngraph::he::SealCiphertextWrapper>();
-    ngraph::he::scalar_negate_seal(arg1, tmp, element_type, he_seal_backend);
-    ngraph::he::scalar_add_seal(arg0, *tmp, out, element_type, he_seal_backend);
-    out->known_value() = false;
-  }
-}
-
-void ngraph::he::scalar_subtract_seal(const HEPlaintext& arg0,
-                                      const HEPlaintext& arg1, HEPlaintext& out,
-                                      const element::Type& element_type,
-                                      HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-
-  const std::vector<double>& arg0_vals = arg0.values();
-  const std::vector<double>& arg1_vals = arg1.values();
-  std::vector<double> out_vals(arg0.num_values());
-
-  std::transform(arg0_vals.begin(), arg0_vals.end(), arg1_vals.begin(),
-                 out_vals.begin(), std::minus<double>());
-  out.set_values(out_vals);
-}
+}  // namespace ngraph::he

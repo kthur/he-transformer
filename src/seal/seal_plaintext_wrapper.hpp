@@ -17,32 +17,50 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "seal/seal.h"
 
-namespace ngraph {
-namespace he {
+namespace ngraph::he {
+/// \brief Wrapper around Seal::Plaintext with complex packing information
 class SealPlaintextWrapper {
  public:
-  SealPlaintextWrapper(const seal::Plaintext& plain,
-                       bool complex_packing = false)
-      : m_plaintext(plain), m_complex_packing(complex_packing) {}
+  /// \brief Constructs a SealPlaintextWrapper from a given plaintet and complex
+  /// packing argument
+  /// \param[in] plain Plaintext value
+  /// \param[in] complex_packing Whether or not the plaintext uses complex
+  /// packing
+  explicit SealPlaintextWrapper(seal::Plaintext plain,
+                                bool complex_packing = false)
+      : m_plaintext(std::move(plain)), m_complex_packing(complex_packing) {}
 
-  SealPlaintextWrapper(bool complex_packing = false)
+  /// \brief Constructs an empty plaintext wrapper using complex packing
+  /// argument
+  /// \param[in] complex_packing Whether or not the plaintext uses complex
+  /// packing
+  explicit SealPlaintextWrapper(bool complex_packing = false)
       : m_complex_packing(complex_packing) {}
 
+  /// \brief Returns whether or not underlying plaintext uses complex packing
   bool complex_packing() const { return m_complex_packing; }
+
+  /// \brief Returns whether or not underlying plaintext uses complex packing
   bool& complex_packing() { return m_complex_packing; }
 
+  /// \brief Returns reference to underlying plaintext
   seal::Plaintext& plaintext() { return m_plaintext; }
+
+  /// \brief Returns reference to underlying plaintext
   const seal::Plaintext& plaintext() const { return m_plaintext; }
 
+  /// \brief Returns reference to scale of underlying plaintext
   double& scale() { return m_plaintext.scale(); }
+
+  /// \brief Returns scale of underlying plaintext
   double scale() const { return m_plaintext.scale(); }
 
  private:
   seal::Plaintext m_plaintext;
   bool m_complex_packing;
 };
-}  // namespace he
-}  // namespace ngraph
+}  // namespace ngraph::he

@@ -16,32 +16,30 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
-
-#include "he_plaintext.hpp"
+#include "he_type.hpp"
 #include "ngraph/coordinate_transform.hpp"
 #include "ngraph/type/element_type.hpp"
 #include "seal/he_seal_backend.hpp"
 #include "seal/kernel/add_seal.hpp"
 
-namespace ngraph {
-namespace he {
-inline void sum_seal(std::vector<std::shared_ptr<SealCiphertextWrapper>>& arg,
-                     std::vector<std::shared_ptr<SealCiphertextWrapper>>& out,
+namespace ngraph::he {
+inline void sum_seal(std::vector<HEType>& arg, std::vector<HEType>& out,
                      const Shape& in_shape, const Shape& out_shape,
                      const AxisSet& reduction_axes,
                      const element::Type& element_type,
-                     ngraph::he::HESealBackend& he_seal_backend) {
+                     HESealBackend& he_seal_backend) {
   NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
                "Unsupported type ", element_type);
   CoordinateTransform output_transform(out_shape);
 
+  bool complex_packing = arg.size() > 0 ? arg[0].complex_packing() : false;
+  size_t batch_size = arg.size() > 0 ? arg[0].batch_size() : 1;
+
   for (const Coordinate& output_coord : output_transform) {
+    // TODO(fboemer): batch size
     const auto out_coord_idx = output_transform.index(output_coord);
-    out[out_coord_idx] = std::make_shared<SealCiphertextWrapper>();
-    out[out_coord_idx]->known_value() = true;
-    out[out_coord_idx]->value() = 0;
+    out[out_coord_idx] = HEType(HEPlaintext(std::vector<double>(batch_size, 0)),
+                                complex_packing);
   }
 
   CoordinateTransform input_transform(in_shape);
@@ -51,35 +49,8 @@ inline void sum_seal(std::vector<std::shared_ptr<SealCiphertextWrapper>>& arg,
 
     auto& input = arg[input_transform.index(input_coord)];
     auto& output = out[output_transform.index(output_coord)];
-    ngraph::he::scalar_add_seal(*input, *output, output, element_type,
-                                he_seal_backend);
+    scalar_add_seal(input, output, output, he_seal_backend);
   }
 }
 
-inline void sum_seal(std::vector<HEPlaintext>& arg,
-                     std::vector<HEPlaintext>& out, const Shape& in_shape,
-                     const Shape& out_shape, const AxisSet& reduction_axes,
-                     const element::Type& element_type,
-                     ngraph::he::HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type", element_type);
-  CoordinateTransform output_transform(out_shape);
-
-  for (const Coordinate& output_coord : output_transform) {
-    out[output_transform.index(output_coord)] = HEPlaintext(0.f);
-  }
-
-  CoordinateTransform input_transform(in_shape);
-
-  for (const Coordinate& input_coord : input_transform) {
-    Coordinate output_coord = reduce(input_coord, reduction_axes);
-    auto& input = arg[input_transform.index(input_coord)];
-    auto& output = out[output_transform.index(output_coord)];
-
-    auto tmp = HEPlaintext(output.values());
-    ngraph::he::scalar_add_seal(input, tmp, output, element_type,
-                                he_seal_backend);
-  }
-}
-}  // namespace he
-}  // namespace ngraph
+}  // namespace ngraph::he

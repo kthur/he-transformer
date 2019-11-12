@@ -17,13 +17,13 @@
 set(SRC
     main.cpp
     test_seal.cpp
+    test_encryption_parameters.cpp
+    test_he_op_annotations.cpp
     test_perf_micro.cpp
-    test_message.cpp
-    test_util.cpp)
+    test_protobuf.cpp
+    test_tensor.cpp)
 
-set(ACTIVE_BACKEND_LIST HE_SEAL)
-
-set(MULTI_TEST_SRC
+set(BACKEND_TEST_SRC
     test_add.in.cpp
     test_avg_pool.in.cpp
     test_batch_norm_inference.in.cpp
@@ -32,58 +32,45 @@ set(MULTI_TEST_SRC
     test_concat.in.cpp
     test_constant.in.cpp
     test_convolution.in.cpp
+    test_divide.in.cpp
+    test_exp.in.cpp
     test_dot.in.cpp
     test_he_fusion.in.cpp
-    test_known_values.in.cpp
     test_layers.in.cpp
     test_maxpool.in.cpp
     test_minimum.in.cpp
     test_multiply.in.cpp
+    test_max.in.cpp
     test_negate.in.cpp
     test_pad.in.cpp
-    test_perf.in.cpp
+    test_power.in.cpp
     test_read_write.in.cpp
     test_relu.in.cpp
     test_reshape.in.cpp
     test_reverse.in.cpp
     test_server_client.in.cpp
+    test_softmax.in.cpp
     test_slice.in.cpp
     test_subtract.in.cpp
     test_sum.in.cpp)
 
-foreach(BACKEND_NAME ${ACTIVE_BACKEND_LIST})
-  string(REPLACE "HE_"
-                 ""
-                 BACKEND_DIR
-                 ${BACKEND_NAME})
-  string(REPLACE "_"
-                 "/"
-                 BACKEND_DIR
-                 ${BACKEND_DIR})
-  string(TOLOWER ${BACKEND_DIR} BACKEND_DIR)
+set(MANIFEST ${PROJECT_SOURCE_DIR}/src/seal/unit_test.manifest)
+set(BACKEND_NAME "HE_SEAL")
 
-  set(MANIFEST ${PROJECT_SOURCE_DIR}/src/${BACKEND_DIR}/unit_test.manifest)
-
-  foreach(TEST_SRC ${MULTI_TEST_SRC})
-    string(REPLACE ".in."
-                   "_${BACKEND_NAME}."
-                   TARGET_NAME
-                   ${TEST_SRC})
-    configure_file(${TEST_SRC} ${TARGET_NAME})
-    set(SRC ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME} ${SRC})
-  endforeach()
-
-  message(STATUS "Adding unit test for backend ${BACKEND_NAME}")
+foreach(TEST_SRC ${BACKEND_TEST_SRC})
+  string(REPLACE ".in."
+                 "_${BACKEND_NAME}."
+                 TARGET_NAME
+                 ${TEST_SRC})
+  configure_file(${TEST_SRC} ${TARGET_NAME})
+  set(SRC ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME} ${SRC})
 endforeach()
+
+message(STATUS "Adding unit test for backend ${BACKEND_NAME}")
 
 add_executable(unit-test ${SRC})
 
 target_include_directories(unit-test PRIVATE ".")
-
-set(
-  CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -DHE_SERIALIZED_ZOO=\\\"${CMAKE_CURRENT_SOURCE_DIR}/model\\\""
-  )
 
 # Add ngraph test utils library
 add_library(ngraph_test_util STATIC IMPORTED)
@@ -105,8 +92,8 @@ target_include_directories(unit-test
 
 target_link_libraries(unit-test PRIVATE ngraph_test_util)
 target_link_libraries(unit-test PRIVATE ngraph libgtest)
-target_link_libraries(unit-test PRIVATE ${CMAKE_DL_LIBS})
-target_link_libraries(unit-test PRIVATE he_seal_backend libseal pthread)
+target_link_libraries(unit-test PRIVATE he_seal_backend libseal)
+target_link_libraries(unit-test PRIVATE protobuf::libprotobuf)
 
 add_custom_target(check
                   COMMAND ${PROJECT_BINARY_DIR}/test/unit-test \${ARGS}

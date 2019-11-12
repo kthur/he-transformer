@@ -15,119 +15,69 @@
 //*****************************************************************************
 
 #include "seal/kernel/add_seal.hpp"
+
 #include "seal/he_seal_backend.hpp"
 #include "seal/seal_util.hpp"
 
-void ngraph::he::scalar_add_seal(
-    ngraph::he::SealCiphertextWrapper& arg0,
-    ngraph::he::SealCiphertextWrapper& arg1,
-    std::shared_ptr<ngraph::he::SealCiphertextWrapper>& out,
-    const element::Type& element_type, HESealBackend& he_seal_backend,
-    const seal::MemoryPoolHandle& pool) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-  if (arg0.known_value() && arg1.known_value()) {
-    out->known_value() = true;
-    out->value() = arg0.value() + arg1.value();
-  } else if (arg0.known_value()) {
-    HEPlaintext p(arg0.value());
-    scalar_add_seal(p, arg1, out, element_type, he_seal_backend, pool);
-    out->known_value() = false;
-  } else if (arg1.known_value()) {
-    HEPlaintext p(arg1.value());
-    scalar_add_seal(p, arg0, out, element_type, he_seal_backend, pool);
-    out->known_value() = false;
-  } else {
-    NGRAPH_CHECK(arg0.complex_packing() == arg1.complex_packing(),
-                 "arg0.complex_packing() (", arg0.complex_packing(),
-                 ") does not match arg1.complex_packing() (",
-                 arg1.complex_packing(), ")");
-    NGRAPH_CHECK(arg0.complex_packing() == he_seal_backend.complex_packing(),
-                 "Add arg0 is not he_seal_backend.complex_packing()");
-    NGRAPH_CHECK(arg1.complex_packing() == he_seal_backend.complex_packing(),
-                 "Add arg1 is not he_seal_backend.complex_packing()");
+namespace ngraph::he {
 
-    match_modulus_and_scale_inplace(arg0, arg1, he_seal_backend, pool);
-    he_seal_backend.get_evaluator()->add(arg0.ciphertext(), arg1.ciphertext(),
-                                         out->ciphertext());
-
-    out->known_value() = false;
-  }
-  out->complex_packing() = he_seal_backend.complex_packing();
+void scalar_add_seal(SealCiphertextWrapper& arg0, SealCiphertextWrapper& arg1,
+                     std::shared_ptr<SealCiphertextWrapper>& out,
+                     HESealBackend& he_seal_backend,
+                     const seal::MemoryPoolHandle& pool) {
+  match_modulus_and_scale_inplace(arg0, arg1, he_seal_backend, pool);
+  he_seal_backend.get_evaluator()->add(arg0.ciphertext(), arg1.ciphertext(),
+                                       out->ciphertext());
 }
 
-void ngraph::he::scalar_add_seal(
-    ngraph::he::SealCiphertextWrapper& arg0, const HEPlaintext& arg1,
-    std::shared_ptr<ngraph::he::SealCiphertextWrapper>& out,
-    const element::Type& element_type, HESealBackend& he_seal_backend,
-    const seal::MemoryPoolHandle& pool) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-  if (arg0.known_value()) {
-    NGRAPH_CHECK(arg1.is_single_value(), "arg1 is not single value");
-    out->known_value() = true;
-    out->value() = arg0.value() + arg1.first_value();
-    out->complex_packing() = arg0.complex_packing();
-    return;
-  }
-  // TODO: handle case where arg1 = {0, 0, 0, 0, ...}
-  bool add_zero = arg1.is_single_value() && (arg1.first_value() == 0.0);
+void scalar_add_seal(SealCiphertextWrapper& arg0, const HEPlaintext& arg1,
+                     std::shared_ptr<SealCiphertextWrapper>& out,
+                     const bool complex_packing,
+                     HESealBackend& he_seal_backend) {
+  // TODO(fboemer): handle case where arg1 = {0, 0, 0, 0, ...}
+  bool add_zero = (arg1.size() == 1) && (arg1[0] == 0.0);
 
   if (add_zero) {
     SealCiphertextWrapper tmp(arg0);
-    NGRAPH_CHECK(tmp.complex_packing() == arg0.complex_packing());
-    out = std::make_shared<ngraph::he::SealCiphertextWrapper>(tmp);
-    out->complex_packing() = tmp.complex_packing();
-
+    out = std::make_shared<SealCiphertextWrapper>(tmp);
   } else {
-    bool complex_packing = arg0.complex_packing();
-    // TODO: optimize for adding single complex number
-    if (arg1.is_single_value() && !complex_packing) {
-      double value = arg1.first_value();
-      add_plain(arg0.ciphertext(), value, out->ciphertext(), he_seal_backend);
+    // TODO(fboemer): optimize for adding single complex number
+    if ((arg1.size() == 1) && !complex_packing) {
+      add_plain(arg0.ciphertext(), arg1[0], out->ciphertext(), he_seal_backend);
     } else {
       auto p = SealPlaintextWrapper(complex_packing);
-      ngraph::he::encode(p, arg1, *he_seal_backend.get_ckks_encoder(),
-                         arg0.ciphertext().parms_id(), element_type,
-                         arg0.ciphertext().scale(), complex_packing);
-      size_t chain_ind0 = get_chain_index(arg0, he_seal_backend);
-      size_t chain_ind1 = get_chain_index(p.plaintext(), he_seal_backend);
+      encode(p, arg1, *he_seal_backend.get_ckks_encoder(),
+             arg0.ciphertext().parms_id(), element::f32,
+             arg0.ciphertext().scale(), complex_packing);
+      size_t chain_ind0 = he_seal_backend.get_chain_index(arg0);
+      size_t chain_ind1 = he_seal_backend.get_chain_index(p);
       NGRAPH_CHECK(chain_ind0 == chain_ind1, "Chain inds ", chain_ind0, ",  ",
                    chain_ind1, " don't match");
 
       he_seal_backend.get_evaluator()->add_plain(
           arg0.ciphertext(), p.plaintext(), out->ciphertext());
     }
-    out->complex_packing() = arg0.complex_packing();
   }
-  out->known_value() = false;
 }
 
-void ngraph::he::scalar_add_seal(const HEPlaintext& arg0,
-                                 const HEPlaintext& arg1, HEPlaintext& out,
-                                 const element::Type& element_type,
-                                 HESealBackend& he_seal_backend) {
-  NGRAPH_CHECK(he_seal_backend.is_supported_type(element_type),
-               "Unsupported type ", element_type);
-
-  const std::vector<double>& arg0_vals = arg0.values();
-  const std::vector<double>& arg1_vals = arg1.values();
-  std::vector<double> out_vals;
-
-  if (arg0_vals.size() == 1) {
-    std::transform(
-        arg1_vals.begin(), arg1_vals.end(), std::back_inserter(out_vals),
-        std::bind(std::plus<double>(), std::placeholders::_1, arg0_vals[0]));
-  } else if (arg1_vals.size() == 1) {
-    std::transform(
-        arg0_vals.begin(), arg0_vals.end(), std::back_inserter(out_vals),
-        std::bind(std::plus<double>(), std::placeholders::_1, arg1_vals[0]));
+void scalar_add_seal(const HEPlaintext& arg0, const HEPlaintext& arg1,
+                     HEPlaintext& out) {
+  HEPlaintext out_vals;
+  if (arg0.size() == 1) {
+    out_vals.resize(arg1.size());
+    std::transform(arg1.begin(), arg1.end(), out_vals.begin(),
+                   [&](auto x) { return x + arg0[0]; });
+  } else if (arg1.size() == 1) {
+    out_vals.resize(arg0.size());
+    std::transform(arg0.begin(), arg0.end(), out_vals.begin(),
+                   [&](auto x) { return x + arg1[0]; });
   } else {
-    NGRAPH_CHECK(arg0.num_values() == arg1.num_values(), "arg0 num values ",
-                 arg0.num_values(), " != arg1 num values ", arg1.num_values(),
-                 " in plain-plain add");
-    std::transform(arg0_vals.begin(), arg0_vals.end(), arg1_vals.begin(),
-                   std::back_inserter(out_vals), std::plus<double>());
+    size_t min_size = std::min(arg0.size(), arg1.size());
+    out_vals.resize(min_size);
+    for (size_t i = 0; i < min_size; ++i) {
+      out_vals[i] = arg0[i] + arg1[i];
+    }
   }
-  out.set_values(out_vals);
+  out = std::move(out_vals);
 }
+}  // namespace ngraph::he
